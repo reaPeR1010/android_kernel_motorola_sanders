@@ -296,8 +296,7 @@ static int notrace ramoops_pstore_write_buf(enum pstore_type_id type,
 	/* Out of the various dmesg dump types, ramoops is currently designed
 	 * to only store crash logs, rather than storing general kernel logs.
 	 */
-	if (reason != KMSG_DUMP_OOPS &&
-	    reason != KMSG_DUMP_PANIC)
+	if (reason != KMSG_DUMP_PANIC)
 		return -EINVAL;
 
 	/* Skip Oopes when configured to do so. */
@@ -520,6 +519,7 @@ static void  ramoops_of_init(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	u32 start = 0, size = 0, console = 0, pmsg = 0;
 	u32 record = 0, oops = 0, annotate = 0;
+	u32 record, oops;
 	int ret;
 
 	pdata = dev_get_drvdata(dev);
@@ -561,6 +561,16 @@ static void  ramoops_of_init(struct platform_device *pdev)
 	if (ret)
 		pr_info("annotation buffer not configured");
 
+	ret = of_property_read_u32(np, "android,ramoops-record-size",
+				&record);
+	if (ret)
+		pr_info("record buffer not configured");
+
+	ret = of_property_read_u32(np, "android,ramoops-dump-oops",
+				&oops);
+	if (ret)
+		pr_info("oops not configured");
+
 	pdata->mem_address = start;
 	pdata->mem_size = size;
 	pdata->console_size = console;
@@ -568,6 +578,8 @@ static void  ramoops_of_init(struct platform_device *pdev)
 	pdata->record_size = record;
 	pdata->dump_oops = (int)oops;
 	pdata->annotate_size = annotate;
+	pdata->record_size = record;
+	pdata->dump_oops = (int)oops;
 }
 #else
 static inline void ramoops_of_init(struct platform_device *pdev)
