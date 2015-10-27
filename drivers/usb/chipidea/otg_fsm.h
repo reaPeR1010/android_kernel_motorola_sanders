@@ -89,7 +89,7 @@ struct ci_otg_fsm_timer_list {
 	struct list_head active_timers;
 };
 
-#ifdef CONFIG_USB_OTG_FSM
+#if IS_ENABLED(CONFIG_USB_OTG_FSM)
 
 int ci_hdrc_otg_fsm_init(struct ci_hdrc *ci);
 int ci_otg_fsm_work(struct ci_hdrc *ci);
