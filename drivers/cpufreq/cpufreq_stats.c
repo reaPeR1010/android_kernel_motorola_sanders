@@ -1009,6 +1009,8 @@ static int __init cpufreq_stats_init(void)
 	create_all_freq_table();
 
 	get_online_cpus();
+	create_all_freq_table();
+
 	for_each_online_cpu(cpu)
 		cpufreq_stats_create_table(cpu);
 	put_online_cpus();
