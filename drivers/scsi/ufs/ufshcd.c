@@ -8681,6 +8681,7 @@ int ufshcd_shutdown(struct ufs_hba *hba)
 	if (host->ehandler)
 		kthread_stop(host->ehandler);
 
+	flush_work(&hba->clk_gating.ungate_work);
 	ret = ufshcd_suspend(hba, UFS_SHUTDOWN_PM);
 
 	spin_lock_irqsave(host->host_lock, flags);
@@ -8688,6 +8689,7 @@ int ufshcd_shutdown(struct ufs_hba *hba)
 	hba->is_powered = false;
 	spin_unlock_irqrestore(host->host_lock, flags);
 
+	pr_info("ufshcd_shutdown\n");
 out:
 	if (ret)
 		dev_err(hba->dev, "%s failed, err %d\n", __func__, ret);
