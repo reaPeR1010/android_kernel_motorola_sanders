@@ -1040,6 +1040,11 @@ free_power_settings:
 	kfree(s_ctrl->sensordata->power_info.power_setting);
 	kfree(s_ctrl->sensordata->power_info.power_down_setting);
 free_slave_info:
+	kfree(s_ctrl->sensordata->power_info.power_setting);
+	kfree(s_ctrl->sensordata->power_info.power_down_setting);
+	s_ctrl->sensordata->power_info.power_setting = NULL;
+	s_ctrl->sensordata->power_info.power_down_setting = NULL;
+
 	kfree(slave_info);
 	return rc;
 }
