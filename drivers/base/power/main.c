@@ -1386,7 +1386,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 		if (pm_runtime_status_suspended(dev)) {
 			pm_runtime_disable(dev);
 			if (pm_runtime_suspended_if_enabled(dev))
-				goto Complete;
+				goto Deltimer;
 
 			pm_runtime_enable(dev);
 		}
@@ -1459,6 +1459,8 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 	}
 
 	device_unlock(dev);
+
+Deltimer:
 	dpm_watchdog_clear(&wd);
 
  Complete:
