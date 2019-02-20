@@ -635,6 +635,8 @@ export CLANG_FLAGS
 ifeq ($(ld-name),lld)
 KBUILD_CFLAGS += -fuse-ld=lld
 endif
+KBUILD_CPPFLAGS += -Qunused-arguments
+endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
 
@@ -723,7 +725,6 @@ ifdef CONFIG_KCOV
   endif
   
 ifeq ($(cc-name),clang)
-KBUILD_CPPFLAGS += -Qunused-arguments
 KBUILD_CFLAGS += -Wno-format-invalid-specifier
 KBUILD_CFLAGS += -Wno-gnu
 KBUILD_CFLAGS += -Wno-address-of-packed-member
