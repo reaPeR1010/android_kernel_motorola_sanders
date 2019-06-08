@@ -672,6 +672,10 @@ else
 KBUILD_CFLAGS	+= -O3 -march=armv8-a -mtune=cortex-a53 -mcpu=cortex-a53
 endif
 
+ifeq ($(cc-name),gcc)
+KBUILD_CFLAGS	+= -Wno-psabi
+endif
+
 ifdef CONFIG_CC_WERROR
 KBUILD_CFLAGS	+= -Werror
 endif
