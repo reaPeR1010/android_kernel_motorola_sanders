@@ -73,4 +73,6 @@ config PANEL_NOTIFICATIONS
 	---help---
 	Panel notifications framework
 
+source "drivers/video/klapse/Kconfig" 
+
 endmenu

@@ -18,3 +18,4 @@ endif
 
 obj-$(CONFIG_MSM_MDSS_PLL)        += msm/mdss/mdss_io_util.o
 obj-$(CONFIG_PANEL_NOTIFICATIONS) += panel_notifier.o
+obj-$(CONFIG_KLAPSE)    += klapse/
