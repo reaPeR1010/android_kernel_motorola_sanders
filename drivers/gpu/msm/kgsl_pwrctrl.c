@@ -381,10 +381,6 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 0);
 	kgsl_pwrctrl_clk_set_rate(pwr->grp_clks[0],
 			pwrlevel->gpu_freq, clocks[0]);
-	trace_kgsl_pwrlevel(device,
-			pwr->active_pwrlevel, pwrlevel->gpu_freq,
-			pwr->previous_pwrlevel,
-			pwr->pwrlevels[old_level].gpu_freq);
 
 	/*
 	 * Some targets do not support the bandwidth requirement of
