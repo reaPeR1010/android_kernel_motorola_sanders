@@ -1527,7 +1527,6 @@ static void kgsl_pwrctrl_retention_clk(struct kgsl_device *device, int state)
 	if (state == KGSL_PWRFLAGS_OFF) {
 		if (test_and_clear_bit(KGSL_PWRFLAGS_RETENTION_ON,
 			&pwr->power_flags)) {
-			trace_kgsl_retention_clk(device, state);
 			/* prepare the mx clk to avoid RPM transactions*/
 			kgsl_pwrctrl_clk_set_rate(pwr->dummy_mx_clk,
 				pwr->pwrlevels
@@ -1545,7 +1544,6 @@ static void kgsl_pwrctrl_retention_clk(struct kgsl_device *device, int state)
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_RETENTION_ON,
 					&pwr->power_flags)) {
-			trace_kgsl_retention_clk(device, state);
 			/*
 			 * Prepare Gfx clocks to put Gfx rail out
 			 * of rentention

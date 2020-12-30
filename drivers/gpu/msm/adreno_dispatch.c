@@ -312,12 +312,13 @@ static void _retire_marker(struct kgsl_cmdbatch *cmdbatch)
 	 * rptr scratch out address. At this point GPU clocks turned off.
 	 * So avoid reading GPU register directly for A3xx.
 	 */
-	if (adreno_is_a3xx(adreno_dev))
+	if (adreno_is_a3xx(adreno_dev)) {
 		trace_adreno_cmdbatch_retired(cmdbatch, -1, 0, 0, drawctxt->rb,
 				0);
-	else
+	} else {
 		trace_adreno_cmdbatch_retired(cmdbatch, -1, 0, 0, drawctxt->rb,
 			adreno_get_rptr(drawctxt->rb));
+	}		
 	kgsl_cmdbatch_destroy(cmdbatch);
 }
 
@@ -2032,15 +2033,16 @@ static void retire_cmdbatch(struct adreno_device *adreno_dev,
 	 * rptr scratch out address. At this point GPU clocks turned off.
 	 * So avoid reading GPU register directly for A3xx.
 	 */
-	if (adreno_is_a3xx(adreno_dev))
+	if (adreno_is_a3xx(adreno_dev)) {
 		trace_adreno_cmdbatch_retired(cmdbatch,
 				(int) dispatcher->inflight, start, end,
 				ADRENO_CMDBATCH_RB(cmdbatch), 0);
-	else
+	} else {
 		trace_adreno_cmdbatch_retired(cmdbatch,
 				(int) dispatcher->inflight, start, end,
 				ADRENO_CMDBATCH_RB(cmdbatch),
 				adreno_get_rptr(drawctxt->rb));
+	}			
 
 	drawctxt->submit_retire_ticks[drawctxt->ticks_index] =
 		end - cmdbatch->submit_ticks;

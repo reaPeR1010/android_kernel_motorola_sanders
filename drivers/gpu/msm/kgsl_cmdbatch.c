@@ -112,10 +112,6 @@ static void _kgsl_cmdbatch_timer(unsigned long data)
 		"kgsl: possible gpu syncpoint deadlock for context %d timestamp %d\n",
 		cmdbatch->context->id, cmdbatch->timestamp);
 
-	set_bit(CMDBATCH_FLAG_FENCE_LOG, &cmdbatch->priv);
-	kgsl_context_dump(cmdbatch->context);
-	clear_bit(CMDBATCH_FLAG_FENCE_LOG, &cmdbatch->priv);
-
 	dev_err(device->dev, "      pending events:\n");
 
 	for (i = 0; i < cmdbatch->numsyncs; i++) {
