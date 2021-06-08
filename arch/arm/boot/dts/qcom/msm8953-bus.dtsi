@@ -36,12 +36,6 @@
 			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
 				<&clock_gcc  clk_bimc_msmbus_a_clk>;
 
-			coresight-id = <203>;
-			coresight-name = "coresight-bimc";
-			coresight-nr-inports = <0>;
-			coresight-outports = <0>;
-			coresight-child-list = <&funnel_in0>;
-			coresight-child-ports = <2>;
 		};
 
 		fab_pcnoc: fab-pcnoc {
@@ -55,13 +49,6 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_pcnoc_msmbus_clk>,
 				<&clock_gcc  clk_pcnoc_msmbus_a_clk>;
-
-			coresight-id = <201>;
-			coresight-name = "coresight-pcnoc";
-			coresight-nr-inports = <0>;
-			coresight-outports = <0>;
-			coresight-child-list = <&funnel_center>;
-			coresight-child-ports = <3>;
 
 			qcom,node-qos-clks {
 				clock-names = "pcnoc-usb3-axi-no-rate";
@@ -82,12 +69,6 @@
 			clocks = <&clock_gcc  clk_snoc_msmbus_clk>,
 				<&clock_gcc  clk_snoc_msmbus_a_clk>;
 
-			coresight-id = <200>;
-			coresight-name = "coresight-snoc";
-			coresight-nr-inports = <0>;
-			coresight-outports = <0>;
-			coresight-child-list = <&funnel_center>;
-			coresight-child-ports = <4>;
 		};
 
 		fab_snoc_mm: fab-snoc-mm {

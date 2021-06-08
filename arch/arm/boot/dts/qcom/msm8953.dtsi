@@ -158,7 +158,6 @@
 #include "msm8953-ion.dtsi"
 #include "msm8953-smp2p.dtsi"
 #include "msm-arm-smmu-8953.dtsi"
-#include "msm8953-coresight.dtsi"
 #include "msm8953-bus.dtsi"
 #include "msm8953-iommu-domains.dtsi"
 #include "msm8953-vidc.dtsi"
@@ -1297,6 +1296,7 @@
 		reg-names = "etm-base", "debug-base";
 
 		qcom,coresight-jtagmm-cpu = <&CPU0>;
+                status = "disabled";
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -1310,6 +1310,7 @@
 		reg-names = "etm-base", "debug-base";
 
 		qcom,coresight-jtagmm-cpu = <&CPU1>;
+                status = "disabled";
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -1323,6 +1324,7 @@
 		reg-names = "etm-base", "debug-base";
 
 		qcom,coresight-jtagmm-cpu = <&CPU2>;
+                status = "disabled";
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -1336,6 +1338,7 @@
 		reg-names = "etm-base", "debug-base";
 
 		qcom,coresight-jtagmm-cpu = <&CPU3>;
+                status = "disabled";
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -1349,6 +1352,7 @@
 		reg-names = "etm-base", "debug-base";
 
 		qcom,coresight-jtagmm-cpu = <&CPU4>;
+                status = "disabled";
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -1362,6 +1366,7 @@
 		reg-names = "etm-base", "debug-base";
 
 		qcom,coresight-jtagmm-cpu = <&CPU5>;
+                status = "disabled";
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -1375,6 +1380,7 @@
 		reg-names = "etm-base", "debug-base";
 
 		qcom,coresight-jtagmm-cpu = <&CPU6>;
+                status = "disabled";
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -1388,6 +1394,7 @@
 		reg-names = "etm-base", "debug-base";
 
 		qcom,coresight-jtagmm-cpu = <&CPU7>;
+                status = "disabled";
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
