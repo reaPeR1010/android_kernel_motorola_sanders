@@ -645,6 +645,14 @@ endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
 
+OPT_FLAGS += -mcpu=cortex-a53+crc+crypto
+
+export OPT_FLAGS
+
+KBUILD_CFLAGS  += $(OPT_FLAGS)
+KBUILD_AFLAGS  += $(OPT_FLAGS)
+KBUILD_LDFLAGS += $(OPT_FLAGS)
+
 ifdef CONFIG_LLVM_POLLY
 KBUILD_CFLAGS	+= -mllvm -polly \
 		   -mllvm -polly-run-dce \
@@ -669,7 +677,7 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, attribute-alias)
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,)
 else
-KBUILD_CFLAGS	+= -O3 -march=armv8-a -mtune=cortex-a53 -mcpu=cortex-a53
+KBUILD_CFLAGS	+= -O3
 endif
 
 ifeq ($(cc-name),gcc)
