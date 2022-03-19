@@ -888,7 +888,7 @@ static int get_prop_batt_status(struct smbchg_chip *chip)
 	bool charger_present, chg_inhibit;
 	int batt_soc;
 
-	charger_present = is_usb_present(chip) | is_dc_present(chip);
+	charger_present = is_usb_present(chip) || is_dc_present(chip);
 	if (!charger_present)
 		return POWER_SUPPLY_STATUS_DISCHARGING;
 
