@@ -21,6 +21,17 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+#ifdef MULTI_CAMERA_DEEN
+#ifndef CONFIG_MSM_CAMERA_BST_FACTORY
+#define CONFIG_MSM_CAMERA_BST_FACTORY
+#endif
+
+#define GT24C64_PAGE_SIZE 32
+#ifdef CONFIG_MSM_CAMERA_BST_FACTORY
+static int otp_w_sleep = 10;
+#endif
+#endif
+
 DEFINE_MSM_MUTEX(msm_eeprom_mutex);
 #ifdef CONFIG_COMPAT
 static struct v4l2_file_operations msm_eeprom_v4l2_subdev_fops;
@@ -32,6 +43,189 @@ static struct v4l2_file_operations msm_eeprom_v4l2_subdev_fops;
   *
   * Returns size after computation size, returns error in case of error
   */
+#ifdef MULTI_CAMERA_DEEN
+static int bst_eeprom_read_dualcam_cal_data(struct msm_eeprom_ctrl_t *e_ctrl,
+				struct msm_eeprom_cfg_data *cdata)
+{
+
+	int rc;
+	uint8_t *tmp_ptr = NULL;
+	uint8_t *ptr_dest = NULL;
+	int ret = 0;
+	uint16_t csp_reg_val;
+	uint16_t csp_config_addr =  0x8000;
+
+	ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+			&e_ctrl->i2c_client, csp_config_addr, &csp_reg_val,
+			MSM_CAMERA_I2C_BYTE_DATA);
+	pr_err(" %s: read otp:csp_reg_val %d\n", __func__,
+				csp_reg_val);
+
+	if (cdata->cfg.bst_read_data.num_bytes <= 0)
+		return -EFAULT;
+
+	tmp_ptr = kmalloc(cdata->cfg.bst_read_data.num_bytes, GFP_KERNEL);
+	if (!tmp_ptr)
+		return -EFAULT;
+
+	/* check range */
+	if (cdata->cfg.bst_read_data.num_bytes > e_ctrl->cal_data.num_data) {
+		CDBG("%s: Invalid size. exp %u, req %u\n", __func__,
+		e_ctrl->cal_data.num_data,
+		cdata->cfg.bst_read_data.num_bytes);
+		kfree(tmp_ptr);
+		return -EINVAL;
+	}
+	CDBG("%s:william read_eeprom offset_addr %x, read num bytes %d\n", __func__,
+			cdata->cfg.bst_read_data.offset_addr,
+			cdata->cfg.bst_read_data.num_bytes);
+	ptr_dest = cdata->cfg.bst_read_data.dbuffer;
+	if (cdata->cfg.bst_read_data.num_bytes) {
+			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read_seq(
+				&e_ctrl->i2c_client,
+				cdata->cfg.bst_read_data.offset_addr,
+				tmp_ptr,
+				cdata->cfg.bst_read_data.num_bytes);
+			if (rc < 0) {
+					pr_err("%s: read failed\n", __func__);
+					kfree(tmp_ptr);
+					return rc;
+			}
+	}
+
+	if (copy_to_user(ptr_dest, tmp_ptr,
+			cdata->cfg.bst_read_data.num_bytes)) {
+		kfree(tmp_ptr);
+		pr_err("copy to user failed\n");
+		return -EFAULT;
+	}
+	kfree(tmp_ptr);
+	return rc;
+}
+static int bst_eeprom_write_dualcam_cal_data(struct msm_eeprom_ctrl_t *e_ctrl,
+			struct msm_eeprom_cfg_data *cdata)
+{
+	int rc = 0;
+	uint8_t *tmp_ptr = NULL;
+	uint8_t *ptr_dest = NULL;
+
+
+	int i4RetValue = 0;
+	int i4ResidueDataLength;
+	u32 u4IncOffset = 0;
+	u32 u4CurrentOffset;
+	u8 *pBuff;
+	u8 extra_len = 0;
+
+	if (cdata->cfg.bst_write_data.num_bytes <= 0) {
+		pr_err("Invalid size = %d\n",
+			cdata->cfg.bst_write_data.num_bytes);
+		return -EFAULT;
+	}
+
+	tmp_ptr = kmalloc(cdata->cfg.bst_write_data.num_bytes + GT24C64_PAGE_SIZE, GFP_KERNEL);
+	pr_err("%s:%d] chenhongbin no mem\n", __func__, __LINE__);
+	if (!tmp_ptr)
+		return -EFAULT;
+
+/* check range */
+	if (cdata->cfg.bst_write_data.num_bytes >
+		e_ctrl->cal_data.num_data) {
+			pr_err("%s: Invalid size. exp %u, req %u\n", __func__,
+						e_ctrl->cal_data.num_data,
+				cdata->cfg.bst_write_data.num_bytes);
+			kfree(tmp_ptr);
+			return -EINVAL;
+	}
+	pr_err("%s: read_eeprom offset_addr %x, read num bytes %d\n", __func__,
+		cdata->cfg.bst_write_data.offset_addr,
+		cdata->cfg.bst_write_data.num_bytes);
+	ptr_dest = cdata->cfg.bst_write_data.dbuffer;
+
+	if (copy_from_user((u8 *) tmp_ptr, (u8 *) ptr_dest,
+		cdata->cfg.bst_write_data.num_bytes)) {
+		kfree(tmp_ptr);
+		pr_err("write eeprom ioctl copy from user failed\n");
+		return -EFAULT;
+	}
+	i4ResidueDataLength = (int)cdata->cfg.bst_write_data.num_bytes;
+	u4CurrentOffset = cdata->cfg.bst_write_data.offset_addr;
+	pBuff = tmp_ptr;
+	pr_err("iWriteData u4CurrentOffset is %d(0x%x) i4ResidueDataLength %d\n",
+			u4CurrentOffset, u4CurrentOffset, i4ResidueDataLength);
+
+
+/*write data with less than a page*/
+	extra_len = GT24C64_PAGE_SIZE - u4CurrentOffset % GT24C64_PAGE_SIZE;
+	if (extra_len != GT24C64_PAGE_SIZE) {
+			pr_err("chb_extra 0x%x", extra_len);
+			i4RetValue =
+				e_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
+				&e_ctrl->i2c_client,
+				u4CurrentOffset, pBuff, extra_len);
+			if (i4RetValue < 0) {
+				pr_err("I2C iWriteData failed!u4CurOffset 0x%x",
+					u4CurrentOffset);
+				kfree(tmp_ptr);
+				return i4RetValue;
+			}
+	i4ResidueDataLength -= extra_len;
+	u4CurrentOffset += extra_len;
+	cdata->cfg.bst_write_data.offset_addr = u4CurrentOffset;
+	pBuff += extra_len;
+		msleep(otp_w_sleep);
+	}
+
+/*end*/
+
+
+	do {
+		if (i4ResidueDataLength >= GT24C64_PAGE_SIZE) {
+				i4RetValue =
+				e_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
+					&e_ctrl->i2c_client,
+					u4CurrentOffset, pBuff,
+					GT24C64_PAGE_SIZE);
+
+			if (i4RetValue < 0) {
+					pr_err("I2C iWriteData failed!u4CurOffset 0x%x ret %d",
+					u4CurrentOffset, i4RetValue);
+					kfree(tmp_ptr);
+					return i4RetValue;
+			}
+
+			u4IncOffset += GT24C64_PAGE_SIZE;
+			i4ResidueDataLength -= GT24C64_PAGE_SIZE;
+			u4CurrentOffset =
+			cdata->cfg.bst_write_data.offset_addr + u4IncOffset;
+			pBuff += GT24C64_PAGE_SIZE;
+			msleep(otp_w_sleep);
+		} else {
+			i4RetValue =
+			e_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
+			&e_ctrl->i2c_client,
+			u4CurrentOffset, pBuff, i4ResidueDataLength);
+			if (i4RetValue < 0) {
+				pr_err(" I2C iWriteData failed!!i4RetValue %d",
+						i4RetValue);
+				kfree(tmp_ptr);
+				return i4RetValue;
+			}
+			u4IncOffset += GT24C64_PAGE_SIZE;
+			i4ResidueDataLength -= GT24C64_PAGE_SIZE;
+			u4CurrentOffset =
+			cdata->cfg.bst_write_data.offset_addr + u4IncOffset;
+			pBuff += GT24C64_PAGE_SIZE;
+		}
+	} while (i4ResidueDataLength > 0);
+	msleep(otp_w_sleep);
+	pr_err("i4ResidueDataLength %d,u4CurrentOffset %d",
+		i4ResidueDataLength, u4CurrentOffset);
+	kfree(tmp_ptr);
+	msleep(otp_w_sleep);
+	return rc;
+}
+#endif
 static int msm_get_read_mem_size
 	(struct msm_eeprom_memory_map_array *eeprom_map_array) {
 	int size = 0, i, j;
@@ -55,7 +249,8 @@ static int msm_get_read_mem_size
 		}
 		for (i = 0; i < eeprom_map->memory_map_size; i++) {
 			if (eeprom_map->mem_settings[i].i2c_operation ==
-				MSM_CAM_READ) {
+				MSM_CAM_READ || eeprom_map->mem_settings[i].
+				i2c_operation == MSM_CAM_READ_LOOP) {
 				size += eeprom_map->mem_settings[i].reg_data;
 			}
 		}
@@ -326,6 +521,7 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 	struct msm_eeprom_memory_map_array *eeprom_map_array)
 {
 	int rc =  0, i, j;
+	int m;
 	uint8_t *memptr;
 	struct msm_eeprom_mem_map_t *eeprom_map;
 
@@ -365,7 +561,8 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 					eeprom_map->mem_settings[i].reg_addr,
 					eeprom_map->mem_settings[i].reg_data,
 					eeprom_map->mem_settings[i].data_type);
-				msleep(eeprom_map->mem_settings[i].delay);
+				if (eeprom_map->mem_settings[i].delay > 0)
+					msleep(eeprom_map->mem_settings[i].delay);
 				if (rc < 0) {
 					pr_err("%s: page write failed\n",
 						__func__);
@@ -373,6 +570,7 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 				}
 			}
 			break;
+			case MSM_CAM_POLL_STRICT:
 			case MSM_CAM_POLL: {
 				e_ctrl->i2c_client.addr_type =
 					eeprom_map->mem_settings[i].addr_type;
@@ -382,10 +580,12 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 					eeprom_map->mem_settings[i].reg_data,
 					eeprom_map->mem_settings[i].data_type,
 					eeprom_map->mem_settings[i].delay);
-				if (rc < 0) {
-					pr_err("%s: poll failed\n",
+				if ((rc < 0) ||
+				   ((eeprom_map->mem_settings[i].i2c_operation
+					== MSM_CAM_POLL_STRICT) && (rc != 0))) {
+						pr_err("%s: poll failed\n",
 						__func__);
-					goto clean_up;
+						goto clean_up;
 				}
 			}
 			break;
@@ -397,13 +597,34 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 					eeprom_map->mem_settings[i].reg_addr,
 					memptr,
 					eeprom_map->mem_settings[i].reg_data);
-				msleep(eeprom_map->mem_settings[i].delay);
+				if (eeprom_map->mem_settings[i].delay > 0)
+					msleep(eeprom_map->mem_settings[i].delay);
 				if (rc < 0) {
 					pr_err("%s: read failed\n",
 						__func__);
 					goto clean_up;
 				}
 				memptr += eeprom_map->mem_settings[i].reg_data;
+			}
+			break;
+			case MSM_CAM_READ_LOOP: {
+				e_ctrl->i2c_client.addr_type =
+					eeprom_map->mem_settings[i].addr_type;
+				for (m = 0; m < eeprom_map->mem_settings[i].reg_data; m++) {
+					rc = e_ctrl->i2c_client.i2c_func_tbl->
+					i2c_read(&(e_ctrl->i2c_client),
+					eeprom_map->mem_settings[i].reg_addr,
+					(uint16_t *)memptr,
+					eeprom_map->mem_settings[i].data_type);
+				if (rc < 0) {
+					pr_err("%s: read failed\n",
+						__func__);
+					goto clean_up;
+					}
+				if (eeprom_map->mem_settings[i].delay > 0)
+					msleep(eeprom_map->mem_settings[i].delay);
+				memptr++;
+				}
 			}
 			break;
 			default:
@@ -653,6 +874,16 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 		CDBG("%s E CFG_EEPROM_GET_MM_INFO\n", __func__);
 		rc = msm_eeprom_get_cmm_data(e_ctrl, cdata);
 		break;
+#ifdef MULTI_CAMERA_DEEN
+	case BST_CFG_EEPROM_WRITE_DUALCAM_CALI_DATA:
+		CDBG("%s E BST_CFG_EEPROM_WRITE_DUALCAM_CALI_DATA\n", __func__);
+		rc = bst_eeprom_write_dualcam_cal_data(e_ctrl, cdata);
+		break;
+	case BST_CFG_EEPROM_READ_DUALCAM_CALI_DATA:
+		CDBG("%s E BST_CFG_EEPROM_READ_DUALCAM_CALI_DATA\n", __func__);
+		rc = bst_eeprom_read_dualcam_cal_data(e_ctrl, cdata);
+		break;
+#endif
 	case CFG_EEPROM_INIT:
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
@@ -1322,7 +1553,229 @@ static void msm_eeprom_copy_power_settings_compat(
 			ps32->power_down_setting_a[i].seq_val;
 	}
 }
+#ifdef MULTI_CAMERA_DEEN
+static int msm_eeprom_get_cmm_data32(struct msm_eeprom_ctrl_t *e_ctrl,
+	void __user *arg)
+{
+	int rc = 0;
+	struct msm_eeprom_cfg_data32 *cdata32 =
+		(struct msm_eeprom_cfg_data32 *) arg;
+	struct msm_eeprom_cfg_data cdata;
+	struct msm_eeprom_cmm_t *cmm_data = &e_ctrl->eboard_info->cmm_data;
+	cdata32->cfg.get_cmm_data.cmm_support = cmm_data->cmm_support;
+	cdata32->cfg.get_cmm_data.cmm_compression = cmm_data->cmm_compression;
+	cdata32->cfg.get_cmm_data.cmm_size = cmm_data->cmm_size;
+	cdata.cfg.get_cmm_data.cmm_support =
+		cdata32->cfg.get_cmm_data.cmm_support;
+	cdata.cfg.get_cmm_data.cmm_compression =
+		cdata32->cfg.get_cmm_data.cmm_compression;
+	cdata.cfg.get_cmm_data.cmm_size =
+		cdata32->cfg.get_cmm_data.cmm_size;
+	return rc;
+}
+static int bst_eeprom_read_dualcam_cal_data32(struct msm_eeprom_ctrl_t *e_ctrl,
+		void __user *arg)
+{
 
+	int rc;
+	uint8_t *tmp_ptr = NULL;
+	uint8_t *ptr_dest = NULL;
+	int ret = 0;
+	uint16_t csp_reg_val;
+	uint16_t csp_config_addr =  0x8000;
+	struct msm_eeprom_cfg_data32 *cdata32 =
+		(struct msm_eeprom_cfg_data32 *) arg;
+	struct msm_eeprom_cfg_data cdata;
+	cdata.cfgtype = cdata32->cfgtype;
+	cdata.is_supported = cdata32->is_supported;
+	cdata.cfg.bst_read_data.num_bytes =
+		cdata32->cfg.bst_read_data.num_bytes;
+	cdata.cfg.bst_read_data.offset_addr =
+		cdata32->cfg.bst_read_data.offset_addr;
+
+
+
+
+	ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+			&e_ctrl->i2c_client, csp_config_addr, &csp_reg_val,
+			MSM_CAMERA_I2C_BYTE_DATA);
+	pr_err(" %s: read otp:csp_reg_val %d\n", __func__,
+				csp_reg_val);
+
+	if (cdata.cfg.bst_read_data.num_bytes <= 0)
+		return -EFAULT;
+
+	tmp_ptr = kmalloc(cdata.cfg.bst_read_data.num_bytes, GFP_KERNEL);
+	if (!tmp_ptr)
+		return -EFAULT;
+
+	/* check range */
+	if (cdata.cfg.bst_read_data.num_bytes > e_ctrl->cal_data.num_data) {
+		CDBG("%s: Invalid size. exp %u, req %u\n", __func__,
+		e_ctrl->cal_data.num_data,
+		cdata.cfg.bst_read_data.num_bytes);
+		kfree(tmp_ptr);
+		return -EINVAL;
+	}
+	CDBG("%s:william read_eeprom offset_addr %x, read num bytes %d\n", __func__,
+			cdata.cfg.bst_read_data.offset_addr,
+			cdata.cfg.bst_read_data.num_bytes);
+	ptr_dest = (uint8_t *) compat_ptr(cdata32->cfg.bst_read_data.dbuffer);
+	if (cdata.cfg.bst_read_data.num_bytes) {
+			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read_seq(
+				&e_ctrl->i2c_client,
+				cdata.cfg.bst_read_data.offset_addr,
+				tmp_ptr,
+				cdata.cfg.bst_read_data.num_bytes);
+			if (rc < 0) {
+					pr_err("%s: read failed\n", __func__);
+					kfree(tmp_ptr);
+					return rc;
+			}
+	}
+
+	if (copy_to_user(ptr_dest, tmp_ptr,
+			cdata.cfg.bst_read_data.num_bytes)) {
+		kfree(tmp_ptr);
+		pr_err("copy to user failed\n");
+		return -EFAULT;
+	}
+	kfree(tmp_ptr);
+	return rc;
+}
+static int bst_eeprom_write_dualcam_cal_data32(struct msm_eeprom_ctrl_t *e_ctrl,
+					void __user *arg)
+{
+	int rc = 0;
+	uint8_t *tmp_ptr = NULL;
+	uint8_t *ptr_dest = NULL;
+
+	struct msm_eeprom_cfg_data32 *cdata32 =
+	(struct msm_eeprom_cfg_data32 *) arg;
+	struct msm_eeprom_cfg_data cdata;
+
+	int i4RetValue = 0;
+	int i4ResidueDataLength;
+	u32 u4IncOffset = 0;
+	u32 u4CurrentOffset;
+	u8 *pBuff;
+	u8 extra_len = 0;
+	cdata.cfgtype = cdata32->cfgtype;
+	cdata.is_supported = cdata32->is_supported;
+	cdata.cfg.bst_write_data.num_bytes =
+		cdata32->cfg.bst_write_data.num_bytes;
+	cdata.cfg.bst_write_data.offset_addr =
+		cdata32->cfg.bst_write_data.offset_addr;
+
+	if (cdata.cfg.bst_write_data.num_bytes <= 0) {
+		pr_err("Invalid size = %d\n",
+			cdata.cfg.bst_write_data.num_bytes);
+		return -EFAULT;
+	}
+
+	tmp_ptr = kmalloc(cdata.cfg.bst_write_data.num_bytes + GT24C64_PAGE_SIZE, GFP_KERNEL);
+	pr_err("%s:%d] chenhongbin no mem\n", __func__, __LINE__);
+	if (!tmp_ptr)
+		return -EFAULT;
+
+/* check range */
+	if (cdata.cfg.bst_write_data.num_bytes >
+		e_ctrl->cal_data.num_data) {
+			pr_err("%s: Invalid size. exp %u, req %u\n", __func__,
+						e_ctrl->cal_data.num_data,
+				cdata.cfg.bst_write_data.num_bytes);
+			kfree(tmp_ptr);
+			return -EINVAL;
+	}
+	pr_err("%s: read_eeprom offset_addr %x, read num bytes %d\n", __func__,
+		cdata.cfg.bst_write_data.offset_addr,
+		cdata.cfg.bst_write_data.num_bytes);
+	ptr_dest = (uint8_t *) compat_ptr(cdata32->cfg.bst_write_data.dbuffer);
+
+	if (copy_from_user((u8 *) tmp_ptr, (u8 *) ptr_dest,
+		cdata.cfg.bst_write_data.num_bytes)) {
+		kfree(tmp_ptr);
+		pr_err("write eeprom ioctl copy from user failed\n");
+		return -EFAULT;
+	}
+	i4ResidueDataLength = (int)cdata.cfg.bst_write_data.num_bytes;
+	u4CurrentOffset = cdata.cfg.bst_write_data.offset_addr;
+	pBuff = tmp_ptr;
+	pr_err("iWriteData u4CurrentOffset is %d(0x%x) i4ResidueDataLength %d\n",
+			u4CurrentOffset, u4CurrentOffset, i4ResidueDataLength);
+
+
+/*write data with less than a page*/
+	extra_len = GT24C64_PAGE_SIZE - u4CurrentOffset % GT24C64_PAGE_SIZE;
+	if (extra_len != GT24C64_PAGE_SIZE) {
+			pr_err("chb_extra 0x%x", extra_len);
+			i4RetValue =
+				e_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
+				&e_ctrl->i2c_client,
+				u4CurrentOffset, pBuff, extra_len);
+			if (i4RetValue < 0) {
+				pr_err("I2C iWriteData failed!u4CurOffset 0x%x",
+					u4CurrentOffset);
+				kfree(tmp_ptr);
+				return i4RetValue;
+			}
+	i4ResidueDataLength -= extra_len;
+	u4CurrentOffset += extra_len;
+	cdata.cfg.bst_write_data.offset_addr = u4CurrentOffset;
+	pBuff += extra_len;
+		msleep(otp_w_sleep);
+	}
+
+/*end*/
+
+
+	do {
+		if (i4ResidueDataLength >= GT24C64_PAGE_SIZE) {
+				i4RetValue =
+				e_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
+					&e_ctrl->i2c_client,
+					u4CurrentOffset, pBuff,
+					GT24C64_PAGE_SIZE);
+
+			if (i4RetValue < 0) {
+					pr_err("I2C iWriteData failed!u4CurOffset 0x%x ret %d",
+					u4CurrentOffset, i4RetValue);
+					kfree(tmp_ptr);
+					return i4RetValue;
+			}
+
+			u4IncOffset += GT24C64_PAGE_SIZE;
+			i4ResidueDataLength -= GT24C64_PAGE_SIZE;
+			u4CurrentOffset =
+			cdata.cfg.bst_write_data.offset_addr + u4IncOffset;
+			pBuff += GT24C64_PAGE_SIZE;
+			msleep(otp_w_sleep);
+		} else {
+			i4RetValue =
+			e_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
+			&e_ctrl->i2c_client,
+			u4CurrentOffset, pBuff, i4ResidueDataLength);
+			if (i4RetValue < 0) {
+				pr_err(" I2C iWriteData failed!!i4RetValue %d",
+						i4RetValue);
+				kfree(tmp_ptr);
+				return i4RetValue;
+			}
+			u4IncOffset += GT24C64_PAGE_SIZE;
+			i4ResidueDataLength -= GT24C64_PAGE_SIZE;
+			u4CurrentOffset =
+			cdata.cfg.bst_write_data.offset_addr + u4IncOffset;
+			pBuff += GT24C64_PAGE_SIZE;
+		}
+	} while (i4ResidueDataLength > 0);
+	msleep(otp_w_sleep);
+	pr_err("i4ResidueDataLength %d,u4CurrentOffset %d",
+		i4ResidueDataLength, u4CurrentOffset);
+	kfree(tmp_ptr);
+	msleep(otp_w_sleep);
+	return rc;
+}
+#endif
 static int eeprom_config_read_cal_data32(struct msm_eeprom_ctrl_t *e_ctrl,
 	void __user *arg)
 {
@@ -1331,7 +1784,6 @@ static int eeprom_config_read_cal_data32(struct msm_eeprom_ctrl_t *e_ctrl,
 	struct msm_eeprom_cfg_data32 *cdata32 =
 		(struct msm_eeprom_cfg_data32 *) arg;
 	struct msm_eeprom_cfg_data cdata;
-
 	cdata.cfgtype = cdata32->cfgtype;
 	cdata.is_supported = cdata32->is_supported;
 	cdata.cfg.read_data.num_bytes = cdata32->cfg.read_data.num_bytes;
@@ -1353,6 +1805,7 @@ static int eeprom_config_read_cal_data32(struct msm_eeprom_ctrl_t *e_ctrl,
 
 	return rc;
 }
+
 
 static int eeprom_init_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 	void __user *argp)
@@ -1457,9 +1910,10 @@ static int eeprom_init_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 	if (rc < 0) {
 		pr_err("%s:%d memory map parse failed\n",
 			__func__, __LINE__);
-		goto free_mem;
+		goto power_down;
 	}
 
+power_down:
 	rc = msm_camera_power_down(power_info,
 		e_ctrl->eeprom_device_type, &e_ctrl->i2c_client);
 	if (rc < 0)
@@ -1514,6 +1968,20 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 		CDBG("%s E CFG_EEPROM_READ_CAL_DATA\n", __func__);
 		rc = eeprom_config_read_cal_data32(e_ctrl, argp);
 		break;
+#ifdef MULTI_CAMERA_DEEN
+	case CFG_EEPROM_GET_MM_INFO:
+		CDBG("%s E CFG_EEPROM_GET_MM_INFO\n", __func__);
+		rc = msm_eeprom_get_cmm_data32(e_ctrl, argp);
+		break;
+	case BST_CFG_EEPROM_WRITE_DUALCAM_CALI_DATA:
+		CDBG("%s E BST_CFG_EEPROM_WRITE_DUALCAM_CALI_DATA\n", __func__);
+		rc = bst_eeprom_write_dualcam_cal_data32(e_ctrl, cdata);
+		break;
+	case BST_CFG_EEPROM_READ_DUALCAM_CALI_DATA:
+		CDBG("%s E BST_CFG_EEPROM_READ_DUALCAM_CALI_DATA\n", __func__);
+		rc = bst_eeprom_read_dualcam_cal_data32(e_ctrl, cdata);
+		break;
+#endif
 	case CFG_EEPROM_INIT:
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
@@ -1526,10 +1994,61 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 			if (rc < 0)
 				pr_err("%s:%d Eeprom init failed\n",
 					__func__, __LINE__);
-		} else {
-			CDBG("%s:%d Already read eeprom\n",
+		}
+		break;
+	case CFG_EEPROM_REINIT:
+	{
+		struct msm_eeprom_memory_map_array *mem_map_array;
+		struct msm_eeprom_cfg_data32 *cdata32 = argp;
+
+		CDBG("%s E CFG_EEPROM_REINIT", __func__);
+
+		kfree(e_ctrl->cal_data.mapdata);
+		e_ctrl->cal_data.mapdata = NULL;
+		kfree(e_ctrl->cal_data.map);
+		e_ctrl->cal_data.map = NULL;
+		e_ctrl->cal_data.num_data = 0;
+
+		mem_map_array = kzalloc(
+				sizeof(
+				struct msm_eeprom_memory_map_array),
+				GFP_KERNEL);
+		if (mem_map_array == NULL) {
+			pr_err("%s:%d Mem Alloc Fail\n",
+					__func__, __LINE__);
+			rc = -ENOMEM;
+			return rc;
+		}
+
+		if (copy_from_user(mem_map_array,
+			    (void *)compat_ptr(
+			    cdata32->cfg.eeprom_info.mem_map_array),
+			    sizeof(struct msm_eeprom_memory_map_array))) {
+			pr_err("%s:%d copy_from_user failed\n",
 				__func__, __LINE__);
 		}
+		if (e_ctrl->i2c_client.cci_client) {
+			e_ctrl->i2c_client.cci_client->i2c_freq_mode =
+				cdata32->cfg.eeprom_info.i2c_freq_mode;
+			if (e_ctrl->i2c_client.cci_client->i2c_freq_mode
+						> I2C_MAX_MODES) {
+				pr_err("%s::%d Improper I2C Freq\n",
+					__func__, __LINE__);
+				e_ctrl->i2c_client.cci_client->i2c_freq_mode =
+						I2C_STANDARD_MODE;
+			}
+			CDBG("%s:%d Not CCI probe", __func__, __LINE__);
+		}
+		rc = eeprom_parse_memory_map(e_ctrl, mem_map_array);
+		if (rc < 0) {
+			pr_err("%s:%d memory map parse failed\n",
+			__func__, __LINE__);
+		}
+		kfree(mem_map_array);
+
+		CDBG("%s:%d Already read eeprom freed and read again\n",
+				__func__, __LINE__);
+	}
 		break;
 	default:
 		break;
@@ -1679,6 +2198,11 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		goto board_free;
 
 	if (e_ctrl->userspace_probe == 0) {
+	#ifdef MULTI_CAMERA_DEEN
+		rc = msm_eeprom_cmm_dts(e_ctrl->eboard_info, of_node);
+		if (rc < 0)
+			CDBG("%s MM data miss:%d\n", __func__, __LINE__);
+	#endif
 		rc = of_property_read_u32(of_node, "qcom,slave-addr",
 			&temp);
 		if (rc < 0) {

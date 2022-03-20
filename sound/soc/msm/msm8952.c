@@ -32,6 +32,13 @@
 #include "../codecs/msm8x16-wcd.h"
 #include "../codecs/wsa881x-analog.h"
 #include <linux/regulator/consumer.h>
+#ifdef CONFIG_SND_SOC_OPALUM
+#include <sound/ospl2xx.h>
+#endif
+#ifdef CONFIG_SND_SOC_TAS2560
+#include <sound/tas2560_algo.h>
+#endif
+
 #define DRV_NAME "msm8952-asoc-wcd"
 
 #define BTSCO_RATE_8KHZ 8000
@@ -75,7 +82,14 @@ static int mi2s_tx_sample_rate = SAMPLING_RATE_48KHZ;
 static atomic_t quat_mi2s_clk_ref;
 static atomic_t quin_mi2s_clk_ref;
 static atomic_t auxpcm_mi2s_clk_ref;
-
+#ifdef CONFIG_SND_SOC_CS35L35
+	struct mutex l35_mclk_mutex;
+	static atomic_t l35_mclk_rsc_ref;
+#ifdef CONFIG_SND_CS35L35_OSR_CLK
+	static struct clk *codec_clk;
+	static struct platform_device *spdev;
+#endif
+#endif
 static int msm8952_enable_dig_cdc_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
 static bool msm8952_swap_gnd_mic(struct snd_soc_codec *codec);
@@ -96,6 +110,7 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = false,
+	.is_selfistick = false,
 	.key_code[0] = KEY_MEDIA,
 	.key_code[1] = KEY_VOICECOMMAND,
 	.key_code[2] = KEY_VOLUMEUP,
@@ -105,6 +120,7 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.key_code[6] = 0,
 	.key_code[7] = 0,
 	.linein_th = 5000,
+	.selfstick_th = 50000,
 };
 
 static struct afe_clk_cfg mi2s_rx_clk_v1 = {
@@ -164,6 +180,16 @@ static struct afe_clk_set wsa_ana_clk = {
 	0,
 };
 
+#ifdef CONFIG_SND_SOC_CS35L35
+static struct afe_clk_set l35_ana_clk = {
+	AFE_API_VERSION_I2S_CONFIG,
+	Q6AFE_LPASS_CLK_ID_MCLK_2,
+	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	0,
+};
+#endif
 static char const *bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE",
 					"S32_LE"};
 static const char *const mi2s_ch_text[] = {"One", "Two"};
@@ -366,6 +392,25 @@ static int msm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+#ifdef CONFIG_SND_SOC_TFA9874
+static int msm_quat_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s: Num of channels = %d Sample rate = %d\n", __func__,
+			msm_pri_mi2s_rx_ch, mi2s_rx_sample_rate);
+	rate->min = rate->max = SAMPLING_RATE_48KHZ;
+	channels->min = channels->max = 2;
+
+	return 0;
+}
+#endif
+
 static int msm_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
 {
@@ -399,7 +444,7 @@ static int msm_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
-
+#ifndef CONFIG_SND_SOC_TFA9874
 static int msm_senary_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
 {
@@ -413,7 +458,7 @@ static int msm_senary_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
-
+#endif
 
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
@@ -473,6 +518,22 @@ static int msm_proxy_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	rate->min = rate->max = 48000;
 	return 0;
 }
+
+#ifdef CONFIG_SND_SOC_TFA9874
+static int msm_quat_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
+			     struct snd_pcm_hw_params *params)
+{
+	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
+		 substream->name, substream->stream);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       SNDRV_PCM_FORMAT_S16_LE);
+	else
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       SNDRV_PCM_FORMAT_S16_LE);
+	return 0;
+}
+#endif
 
 static int msm_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params)
@@ -1483,6 +1544,14 @@ static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		return -EINVAL;
 	}
 
+#if defined(CONFIG_SND_SOC_CS35L35) && defined(CONFIG_SND_CS35L35_OSR_CLK)
+	if (IS_ERR(codec_clk)) {
+		pr_err("fail to enable mclk due to codec clk not present\n");
+		return -ENODEV;
+	}
+	clk_prepare_enable(codec_clk);
+#endif
+
 	if (pdata->vaddr_gpio_mux_mic_ctl) {
 		val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
 		val = val | 0x02020002;
@@ -1528,7 +1597,59 @@ static void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 					__func__, "quat_i2s");
 		return;
 	}
+#if defined(CONFIG_SND_SOC_CS35L35) && defined(CONFIG_SND_CS35L35_OSR_CLK)
+	if (IS_ERR(codec_clk)) {
+		pr_err("fail to disable mclk due to codec clk not present\n");
+		return;
+	}
+	clk_disable_unprepare(codec_clk);
+#endif
 }
+#ifdef CONFIG_SND_SOC_CS35L35
+static int msm8952_enable_cs35l35_mclk(struct snd_soc_card *card, bool enable)
+{
+	int ret = 0;
+
+	mutex_lock(&l35_mclk_mutex);
+	if (enable) {
+		if (!atomic_read(&l35_mclk_rsc_ref)) {
+			pr_debug("%s: going to enable afe clock for cs35l35\n",
+				__func__);
+			l35_ana_clk.enable = true;
+			l35_ana_clk.clk_freq_in_hz = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
+			ret = afe_set_lpass_clock_v2(
+					AFE_PORT_ID_SECONDARY_MI2S_RX,
+					&l35_ana_clk);
+			if (ret < 0) {
+				pr_err("%s: failed to enable mclk %d\n",
+					__func__, ret);
+				goto done;
+			}
+		}
+		atomic_inc_return(&l35_mclk_rsc_ref);
+	} else {
+		if (!atomic_read(&l35_mclk_rsc_ref))
+			goto done;
+		if (!atomic_dec_return(&l35_mclk_rsc_ref)) {
+			pr_debug("%s: going to disable afe clock for cs35l35\n",
+				__func__);
+			l35_ana_clk.enable = false;
+			ret = afe_set_lpass_clock_v2(
+					AFE_PORT_ID_SECONDARY_MI2S_RX,
+					&l35_ana_clk);
+			if (ret < 0) {
+				pr_err("%s: failed to disable mclk %d\n",
+					__func__, ret);
+				goto done;
+			}
+		}
+	}
+
+done:
+	mutex_unlock(&l35_mclk_mutex);
+	return ret;
+}
+#endif
 
 static int msm_quin_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
@@ -1559,6 +1680,22 @@ static int msm_quin_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		pr_err("failed to enable sclk\n");
 		return ret;
 	}
+#ifdef CONFIG_SND_SOC_CS35L35
+	ret = msm_gpioset_activate(CLIENT_WCD_INT, "cs35l35_mclk");
+	if (ret < 0) {
+		pr_err("failed to enable codec gpios, cs35l35_mclk\n");
+		goto err;
+	}
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("%s, going to enable cs35l35_mclk\n", __func__);
+		ret = msm8952_enable_cs35l35_mclk(card, true);
+		if (ret < 0) {
+			pr_err("%s: failed to enable mclk for cs35l35 %d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+#endif
 	ret = msm_gpioset_activate(CLIENT_WCD_INT, "quin_i2s");
 	if (ret < 0) {
 		pr_err("failed to enable codec gpios\n");
@@ -1580,7 +1717,10 @@ err:
 static void msm_quin_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	int ret;
-
+#ifdef CONFIG_SND_SOC_CS35L35
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+#endif
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 				substream->name, substream->stream);
 	ret = msm_mi2s_sclk_ctl(substream, false);
@@ -1594,6 +1734,25 @@ static void msm_quin_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 					__func__, "quin_i2s");
 		return;
 	}
+#ifdef CONFIG_SND_SOC_CS35L35
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("%s, going to disable cs35l35 mclk\n", __func__);
+		ret = msm8952_enable_cs35l35_mclk(card, false);
+		if (ret < 0) {
+			pr_err("%s: failed to disable mclk for l35 %d\n",
+					__func__, ret);
+			return;
+		}
+	}
+
+	pr_debug("%s, going to de-activate cs35l35_clk\n", __func__);
+	ret = msm_gpioset_suspend(CLIENT_WCD_INT, "cs35l35_mclk");
+	if (ret < 0) {
+		pr_err("%s: gpio set cannot be de-activated %s",
+					__func__, "cs35l35_mclk");
+		return;
+	}
+#endif
 }
 
 static void *def_msm8952_wcd_mbhc_cal(void)
@@ -1608,7 +1767,7 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm8952_wcd_cal)->X) = (Y))
-	S(v_hs_max, 1500);
+	S(v_hs_max, 1700);
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(msm8952_wcd_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -1631,10 +1790,10 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 	 * 210-290 == Button 2
 	 * 360-680 == Button 3
 	 */
-	btn_low[0] = 75;
-	btn_high[0] = 75;
-	btn_low[1] = 150;
-	btn_high[1] = 150;
+	btn_low[0] = 88;
+	btn_high[0] = 88;
+	btn_low[1] = 138;
+	btn_high[1] = 138;
 	btn_low[2] = 225;
 	btn_high[2] = 225;
 	btn_low[3] = 450;
@@ -1694,11 +1853,19 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+#ifdef CONFIG_SND_SOC_TFA9874
+static struct snd_soc_ops msm8952_quat_mi2s_be_ops = {
+	.startup = msm_quat_mi2s_snd_startup,
+	.hw_params = msm_quat_mi2s_snd_hw_params,
+	.shutdown = msm_quat_mi2s_snd_shutdown,
+};
+#else
 static struct snd_soc_ops msm8952_quat_mi2s_be_ops = {
 	.startup = msm_quat_mi2s_snd_startup,
 	.hw_params = msm_mi2s_snd_hw_params,
 	.shutdown = msm_quat_mi2s_snd_shutdown,
 };
+#endif
 
 static struct snd_soc_ops msm8952_quin_mi2s_be_ops = {
 	.startup = msm_quin_mi2s_snd_startup,
@@ -1723,6 +1890,56 @@ static struct snd_soc_ops msm_pri_auxpcm_be_ops = {
 	.shutdown = msm_prim_auxpcm_shutdown,
 };
 
+#ifdef CONFIG_SND_SOC_CS35L35
+static int cs35l35_dai_init(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_codec *codec = codec_dai->codec;
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+
+#ifdef CONFIG_SND_CS35L35_OSR_CLK
+	codec_clk = clk_get(&spdev->dev, "osr_clk");
+	if (IS_ERR(codec_clk)) {
+		dev_err(rtd->cpu_dai->dev,
+			"florida_dai_init: can't create the clock!!\n");
+	} else {
+		clk_set_rate(codec_clk, 9600000);
+	}
+#endif
+	ret = snd_soc_codec_set_sysclk(codec, 0, 0,
+						Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
+						SND_SOC_CLOCK_IN);
+	if (ret < 0)
+		pr_err("%s: set sysclk failed, err:%d\n",
+			__func__, ret);
+	ret = snd_soc_dai_set_sysclk(codec_dai, 0,
+						Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
+						SND_SOC_CLOCK_IN);
+	if (ret < 0)
+		pr_err("%s: set dai_sysclk failed, err:%d\n",
+			__func__, ret);
+#ifdef CONFIG_SND_SOC_OPALUM
+	ret = ospl2xx_init(rtd);
+	if (ret != 0)
+		pr_err("%s Cannot set Opalum controls %d\n", __func__, ret);
+#endif
+	snd_soc_dapm_ignore_suspend(dapm, "AMP Playback");
+	snd_soc_dapm_ignore_suspend(dapm, "AMP Capture");
+	snd_soc_dapm_sync(dapm);
+	return ret;
+}
+#endif
+
+
+#ifdef CONFIG_SND_SOC_TAS2560
+static int tas2560_dai_init(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+	ret = tas2560_algo_routing_init(rtd);
+	return ret;
+}
+#endif
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link msm8952_dai[] = {
 	/* FrontEnd DAI Links */
@@ -2154,6 +2371,24 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
+#ifdef CONFIG_SND_SOC_TFA9874
+	{ /* hw:x,26 */
+		.name = "QUAT_MI2S_TX Hostless",
+		.stream_name = "Quaternary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "QUAT_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+#else
 	{/* hw:x,26 */
 		.name = LPASS_BE_SENARY_MI2S_TX,
 		.stream_name = "Senary_mi2s Capture",
@@ -2169,6 +2404,7 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.dpcm_capture = 1,
 		.ignore_pmdown_time = 1,
 	},
+#endif
 	{/* hw:x,27 */
 		.name = "MSM8X16 Compress3",
 		.stream_name = "Compress3",
@@ -2426,6 +2662,39 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA29,
 	},
+#if defined(CONFIG_SND_SOC_TAS2560)
+	{ /* hw:x, 41 */
+		.name = "QUIN_MI2S_TX Hostless",
+		.stream_name = "Quinary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "QUIN_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	{ /* hw:x, 42 */
+		.name = "Quinary MI2S_RX Hostless",
+		.stream_name = "QUIN_MI2S Hostless",
+		.cpu_dai_name = "QUIN_MI2S_RX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+#endif
 	/* Backend I2S DAI Links */
 	{
 		.name = LPASS_BE_PRI_MI2S_RX,
@@ -2474,6 +2743,69 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ops = &msm8952_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
+#if defined(CONFIG_SND_SOC_CS35L35) && defined(CONFIG_SND_CS35L35_QUAT_I2S)
+	{
+		.name = LPASS_BE_QUAT_MI2S_RX,
+		.stream_name = "Quaternary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_name =  "cs35l35.2-0040",
+		.codec_dai_name = "cs35l35-pcm",
+		.init = cs35l35_dai_init,
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+			SND_SOC_DAIFMT_CBS_CFS,
+		.dpcm_playback = 1,
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
+		.be_hw_params_fixup = msm_mi2s_rx_be_hw_params_fixup,
+		.ops = &msm8952_quat_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_TX,
+		.stream_name = "Quaternary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.3",
+		.platform_name = "msm-pcm-hostless",
+		.codec_dai_name = "cs35l35-pcm",
+		.codec_name = "cs35l35.2-0040",
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm8952_quat_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_TX,
+	},
+#elif defined(CONFIG_SND_SOC_TFA9874)
+	{
+		.name = LPASS_BE_QUAT_MI2S_RX,
+		.stream_name = "Quaternary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "tfa98xx-aif-2-34",
+		.codec_name = "tfa98xx.2-0034",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
+		.be_hw_params_fixup = msm_quat_mi2s_rx_be_hw_params_fixup,
+		.ops = &msm8952_quat_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_TX,
+		.stream_name = "Quaternary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "tfa98xx-aif-2-34",
+		.codec_name = "tfa98xx.2-0034",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm8952_quat_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+#else
 	{
 		.name = LPASS_BE_QUAT_MI2S_RX,
 		.stream_name = "Quaternary MI2S Playback",
@@ -2503,6 +2835,7 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ops = &msm8952_quat_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
+#endif
 	/* Primary AUX PCM Backend DAI Links */
 	{
 		.name = LPASS_BE_AUXPCM_RX,
@@ -2673,7 +3006,40 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
-
+#if defined(CONFIG_SND_SOC_CS35L35) && !defined(CONFIG_SND_CS35L35_QUAT_I2S)
+	{
+		.name = LPASS_BE_QUIN_MI2S_TX,
+		.stream_name = "Quinary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-hostless",
+		.codec_dai_name = "cs35l35-pcm",
+#ifdef CONFIG_SND_CS35L35_I2C2
+		.codec_name = "cs35l35.2-0040",
+#else
+		.codec_name = "cs35l35.7-0040",
+#endif
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_TX,
+	},
+#elif defined(CONFIG_SND_SOC_TAS2560)
+	{
+		.name = LPASS_BE_QUIN_MI2S_TX,
+		.stream_name = "Quinary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "tas2560 ASI1",
+		.codec_name = "tas2560.2-004c",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+#else
 	{
 		.name = LPASS_BE_QUIN_MI2S_TX,
 		.stream_name = "Quinary MI2S Capture",
@@ -2688,7 +3054,9 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ops = &msm8952_quin_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
+#endif
 };
+
 static struct snd_soc_dai_link msm8952_hdmi_dba_dai_link[] = {
 	{
 		.name = LPASS_BE_QUIN_MI2S_RX,
@@ -2708,6 +3076,47 @@ static struct snd_soc_dai_link msm8952_hdmi_dba_dai_link[] = {
 };
 
 static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
+#if defined(CONFIG_SND_SOC_CS35L35) && !defined(CONFIG_SND_CS35L35_QUAT_I2S)
+	{
+		.name = LPASS_BE_QUIN_MI2S_RX,
+		.stream_name = "Quinary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+#ifdef CONFIG_SND_CS35L35_I2C2
+		.codec_name =  "cs35l35.2-0040",
+#else
+		.codec_name =  "cs35l35.7-0040",
+#endif
+		.codec_dai_name = "cs35l35-pcm",
+		.init = cs35l35_dai_init,
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+			SND_SOC_DAIFMT_CBS_CFS,
+		.dpcm_playback = 1,
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		.be_hw_params_fixup = msm_mi2s_rx_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+#elif defined(CONFIG_SND_SOC_TAS2560)
+	{
+		.name = LPASS_BE_QUIN_MI2S_RX,
+		.stream_name = "Quinary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "tas2560 ASI1",
+		.codec_name = "tas2560.2-004c",
+		.init = &tas2560_dai_init,
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		.be_hw_params_fixup = msm_mi2s_rx_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+#else
 	{
 		.name = LPASS_BE_QUIN_MI2S_RX,
 		.stream_name = "Quinary MI2S Playback",
@@ -2723,6 +3132,7 @@ static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
 		.ignore_pmdown_time = 1, /* dai link has playback support */
 		.ignore_suspend = 1,
 	},
+#endif
 };
 
 static struct snd_soc_dai_link msm8952_split_a2dp_dai_link[] = {
@@ -3314,6 +3724,9 @@ parse_mclk_freq:
 	/* Initialize loopback mode to false */
 	pdata->lb_mode = false;
 
+#if defined(CONFIG_SND_SOC_CS35L35) && defined(CONFIG_SND_CS35L35_OSR_CLK)
+	spdev = pdev;
+#endif
 	msm8952_dt_parse_cap_info(pdev, pdata);
 
 	card->dev = &pdev->dev;
@@ -3334,7 +3747,10 @@ parse_mclk_freq:
 	atomic_set(&quat_mi2s_clk_ref, 0);
 	atomic_set(&quin_mi2s_clk_ref, 0);
 	atomic_set(&auxpcm_mi2s_clk_ref, 0);
-
+#ifdef CONFIG_SND_SOC_CS35L35
+	mutex_init(&l35_mclk_mutex);
+	atomic_set(&l35_mclk_rsc_ref, 0);
+#endif
 	ret = snd_soc_of_parse_audio_routing(card,
 			"qcom,audio-routing");
 	if (ret)

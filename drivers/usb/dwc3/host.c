@@ -59,6 +59,12 @@ int dwc3_host_init(struct dwc3 *dwc)
 	if (ret)
 		pdata.imod_interval = 0;	/* use default xhci.c value */
 
+	if (dwc->xhci_limit_arbitrary_sg)
+		pdata.limit_arbitrary_sg = 1;
+
+	if (dwc->xhci_panic_on_wdog)
+		pdata.panic_on_wdog = 1;
+
 	ret = platform_device_add_data(xhci, &pdata, sizeof(pdata));
 	if (ret) {
 		dev_err(dwc->dev, "couldn't add platform data to xHCI device\n");

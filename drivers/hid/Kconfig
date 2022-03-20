@@ -133,6 +133,12 @@ config HID_APPLEIR
 
 	Say Y here if you want support for Apple infrared remote control.
 
+config HID_ASUS_GAMEPAD
+	tristate "Asus Gamepad"
+	depends on HID
+	---help---
+	Support for Asus Gamepad joystick.
+
 config HID_AUREAL
 	tristate "Aureal"
 	depends on HID
@@ -864,6 +870,13 @@ config HID_SENSOR_HUB
 	  drivers can use the service provided by this driver to register
 	  for events and handle data streams. Each sensor driver can format
 	  data and present to user mode using input or IIO interface.
+
+config HID_MOTOROLA_MODS
+	tristate "MOTOROLA MODS support" if EXPERT
+	depends on HID
+	default !EXPERT
+	---help---
+	Support Motorola Mods Hid devices
 
 endmenu
 

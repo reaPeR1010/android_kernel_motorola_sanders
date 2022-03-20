@@ -789,6 +789,69 @@ config INPUT_DRV2667_HAPTICS
 	  To compile this driver as a module, choose M here: the
 	  module will be called drv260x-haptics.
 
+config STMVL53L0
+	tristate "STMVL53L0 support"
+	help
+	laser sensor driver.
+
+config STMVL53L0_2017
+	tristate "STMVL53L0_2017 support"
+	default n
+	help
+	 laser sensor driver.
+
+config SENSORS_FPC_1020
+	tristate "fpc fingerprint sensor"
+	default n
+	help
+	 Say Y here if you wish to include support for finger print sensor.
+	 If unsure, say N.
+
+config SENSORS_FPC_PLATFORM_1020
+	tristate "fpc fingerprint sensor"
+	default n
+	help
+	 Say Y here if you wish to include support for finger print sensor.
+	 It is new platform driver. If unsure, say N.
+
+config INPUT_EGISTEC_320
+	tristate "Egistec ET320 fingerprint sensor"
+	default n
+	help
+	 Say Y here if you wish to include support for EGIS finger print sensor.
+	 If unsure, say N.
+
+config INPUT_EGISTEC_5XX
+	tristate "Egistec ET5XX fingerprint sensor"
+	default n
+	help
+	 Say Y here if you wish to include support for EGIS finger print sensor.
+	 If unsure, say N.
+
+config INPUT_SX9310
+	tristate "SX9310_SAR_sensor use single channel"
+	depends on I2C
+	default n
+	help
+	  Say Y to enable the SAR detection application, if N here not to use the
+	  this SAR sensor.
+
+config INPUT_SX9310_TRIPLE
+	tristate "SX9310_SAR_sensor use triple channels"
+	depends on I2C
+	default n
+	help
+	  Say Y to enable the SAR detection application, if N here not to use the
+	  this SAR sensor.
+
+config INPUT_ABOV
+	tristate "ABOV_SAR_sensor"
+	depends on I2C
+	default n
+	help
+	  Say Y to enable the SAR detection application, if N here not to use the
+	  this SAR sensor
+
 source "drivers/input/misc/ots_pat9125/Kconfig"
 
 config SENSORS_LTR553
@@ -836,4 +899,73 @@ config DOUBLE_TAP
 	help
 	 If you say yes here, you get support Bosch double tap sensor function
 
+config SENSORS_BMA25X
+	tristate "BMA25X acceleration sensor support"
+	depends on I2C
+        default n
+	help
+	  If you say yes here, you get support for Bosch Sensortec's
+	  acceleration sensors BMA253.
+
+config SENSORS_BMA25X_ENABLE_INT1
+	tristate "BMA25X acceleration sensor interrupt INT1 support"
+	depends on SENSORS_BMA25X
+	help
+	 If you say yes here, you get INT1 support for Bosch Sensortec
+	 acceleration sensors BMA253.
+	 Select it will disable interrupt INT2 support
+
+config SENSORS_BMA25X_ENABLE_INT2
+	tristate "BMA25X acceleration sensor interrupt INT2 support"
+	depends on SENSORS_BMA25X && !SENSORS_BMA25X_ENABLE_INT1
+	help
+	 If you say yes here, you get INT2 support for Bosch Sensortec
+	 acceleration sensors BMA253.
+	 Can only open if you do NOT open interrupt INT1 support
+
+config SENSORS_AKM09911
+	tristate "AKM09911 3-axis electronic compass sensor driver"
+	depends on I2C
+	help
+	  Say Y here if you want to enable the akm09911 ecompass sensor
+	  driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called akm09911.
+
+config STMVL53L1
+	tristate "STMVL53L1 support"
+	help
+	  Say Y here if you wish to include support for laser sensor driver.
 endif
+
+config EPL8802
+	tristate "EPL8802 support"
+	help
+	proximity sensor driver.
+
+config EPL8802_ALSPS
+	tristate "EPL8802 support"
+	depends on I2C
+	default n
+	help
+	  proximity sensor driver for alsps usage.
+
+config LTR559
+	tristate "LTR559 sensor support"
+	depends on I2C
+	default n
+	help
+	  proximity sensor driver for LTR559
+
+
+config INPUT_MXG3300
+	tristate "MXG3300 magnetic sensor support"
+	default n
+	depends on I2C
+	help
+	  Say Y here if you have Magnachip's MXG3300
+	  magnetic sensor hooked to an I2C bus.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called MXG3300.

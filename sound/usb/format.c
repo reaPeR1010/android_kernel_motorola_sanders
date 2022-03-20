@@ -198,11 +198,22 @@ static int parse_audio_format_rates_v1(struct snd_usb_audio *chip, struct audiof
 			     chip->usb_id == USB_ID(0x041e, 0x4068)))
 				rate = 8000;
 
+			/* if playback sample rate is greater than the capture max samplerate, skip this item
+			 * such as the max capture rate of MX30/BestAudio is 48k, and the playback rate has
+			 * the 96k, Android usb hal can't support this
+			 */
+			if (fp->iface == 2 && chip->capture_rate_max &&
+				chip->capture_rate_max < rate)
+				continue;
+
 			fp->rate_table[fp->nr_rates] = rate;
 			if (!fp->rate_min || rate < fp->rate_min)
 				fp->rate_min = rate;
 			if (!fp->rate_max || rate > fp->rate_max)
 				fp->rate_max = rate;
+			if (fp->rate_max && fp->iface == 1) {
+				chip->capture_rate_max = fp->rate_max;
+			}
 			fp->rates |= snd_pcm_rate_to_rate_bit(rate);
 			fp->nr_rates++;
 		}

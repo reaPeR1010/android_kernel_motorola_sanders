@@ -17,6 +17,9 @@
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
+#ifdef CONFIG_QPNP_FLASH_STROBE_OVERRIDE
+#include <linux/moto_flash_strobe.h>
+#endif
 
 /* Logging macro */
 #undef CDBG
@@ -740,6 +743,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 		slave_info->sensor_id_info = slave_info32->sensor_id_info;
 
 		slave_info->slave_addr = slave_info32->slave_addr;
+		slave_info->slave_addr2 = slave_info32->slave_addr2;
 		slave_info->power_setting_array.size =
 			slave_info32->power_setting_array.size;
 		slave_info->power_setting_array.size_down =
@@ -853,17 +857,18 @@ int32_t msm_sensor_driver_probe(void *setting,
 		goto CSID_TG;
 	}
 
+	camera_info = kzalloc(sizeof(struct msm_camera_slave_info), GFP_KERNEL);
+	if (!camera_info) {
+		rc = -ENOMEM;
+		goto free_slave_info;
+	}
+
 	rc = msm_sensor_get_power_settings(setting, slave_info,
 		&s_ctrl->sensordata->power_info);
 	if (rc < 0) {
 		pr_err("failed");
-		goto free_slave_info;
+		goto free_camera_info;
 	}
-
-
-	camera_info = kzalloc(sizeof(struct msm_camera_slave_info), GFP_KERNEL);
-	if (!camera_info)
-		goto free_slave_info;
 
 	s_ctrl->sensordata->slave_info = camera_info;
 
@@ -872,7 +877,12 @@ int32_t msm_sensor_driver_probe(void *setting,
 	camera_info->sensor_id_reg_addr =
 		slave_info->sensor_id_info.sensor_id_reg_addr;
 	camera_info->sensor_id = slave_info->sensor_id_info.sensor_id;
+	camera_info->sensor_id2 = slave_info->sensor_id_info.sensor_id2;
 	camera_info->sensor_id_mask = slave_info->sensor_id_info.sensor_id_mask;
+	camera_info->sensor_model_id_reg_addr =
+		slave_info->sensor_id_info.sensor_model_id_reg_addr;
+	camera_info->sensor_model_id =
+		slave_info->sensor_id_info.sensor_model_id;
 
 	/* Fill CCI master, slave address and CCI default params */
 	if (!s_ctrl->sensor_i2c_client) {
@@ -890,6 +900,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 	cci_client = s_ctrl->sensor_i2c_client->cci_client;
 	if (!cci_client) {
 		pr_err("failed: cci_client %pK", cci_client);
+		rc = -EINVAL;
 		goto free_camera_info;
 	}
 	cci_client->cci_i2c_master = s_ctrl->cci_i2c_master;
@@ -930,6 +941,8 @@ CSID_TG:
 	s_ctrl->sensordata->actuator_name = slave_info->actuator_name;
 	s_ctrl->sensordata->ois_name = slave_info->ois_name;
 	s_ctrl->sensordata->flash_name = slave_info->flash_name;
+	/* Save Sensor Info */
+	s_ctrl->sensordata->cam_slave_info = slave_info;
 	/*
 	 * Update eeporm subdevice Id by input eeprom name
 	 */
@@ -1018,9 +1031,6 @@ CSID_TG:
 
 	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;
 
-	/*Save sensor info*/
-	s_ctrl->sensordata->cam_slave_info = slave_info;
-
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
 
 	/*
@@ -1033,6 +1043,10 @@ CSID_TG:
 camera_power_down:
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 free_camera_info:
+	kfree(s_ctrl->sensordata->power_info.power_setting);
+	kfree(s_ctrl->sensordata->power_info.power_down_setting);
+	s_ctrl->sensordata->power_info.power_setting = NULL;
+	s_ctrl->sensordata->power_info.power_down_setting = NULL;
 	kfree(camera_info);
 free_slave_info:
 	kfree(slave_info);
@@ -1157,6 +1171,18 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 	CDBG("%s qcom,mclk-23880000 = %d\n", __func__,
 		s_ctrl->set_mclk_23880000);
 
+	/* rear prox led(s) interference */
+	sensordata->sensor_info->is_rear_prox_interfering =
+		of_property_read_bool(of_node, "qcom,rear_prox_interfering");
+
+	CDBG("%s qcom,rear_prox_interfering = %d\n", __func__,
+		sensordata->sensor_info->is_rear_prox_interfering);
+
+#ifdef CONFIG_QPNP_FLASH_STROBE_OVERRIDE
+	s_ctrl->no_hw_strobe  =
+		of_property_read_bool(of_node, "qcom,no_hw_strobe");
+#endif
+
 	return rc;
 
 FREE_VREG_DATA:
@@ -1220,6 +1246,13 @@ static int32_t msm_sensor_driver_parse(struct msm_sensor_ctrl_t *s_ctrl)
 	/* Store sensor control structure in static database */
 	g_sctrl[s_ctrl->id] = s_ctrl;
 	CDBG("g_sctrl[%d] %pK", s_ctrl->id, g_sctrl[s_ctrl->id]);
+
+#ifdef CONFIG_QPNP_FLASH_STROBE_OVERRIDE
+	if (s_ctrl->no_hw_strobe) {
+		flash_led_strobe_en(0);
+		pr_info("%s force sw strobe, id %d\n", __func__, s_ctrl->id);
+	}
+#endif
 
 	return rc;
 

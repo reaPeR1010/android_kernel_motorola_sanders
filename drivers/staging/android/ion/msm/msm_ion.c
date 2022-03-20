@@ -665,6 +665,21 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_APP;
 	return -EINVAL;
 }
+
+bool is_buffer_hlos_assigned(struct ion_buffer *buffer)
+{
+	bool is_hlos = false;
+
+	if (buffer->heap->type == (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA &&
+	    (buffer->flags & ION_FLAG_CP_HLOS))
+		is_hlos = true;
+
+	if (get_secure_vmid(buffer->flags) <= 0)
+		is_hlos = true;
+
+	return is_hlos;
+}
+
 /* fix up the cases where the ioctl direction bits are incorrect */
 static unsigned int msm_ion_ioctl_dir(unsigned int cmd)
 {
@@ -822,6 +837,11 @@ int msm_ion_heap_pages_zero(struct page **pages, int num_pages)
 			>> PAGE_SHIFT;
 	for (i = 0; i < num_pages; i += npages_to_vmap) {
 		npages_to_vmap = min(npages_to_vmap, num_pages - i);
+
+		if (!vmap_zero(&pages[i], npages_to_vmap, VM_IOREMAP,
+			PAGE_KERNEL, NULL))
+			continue;
+
 		for (j = 0; j < MAX_VMAP_RETRIES && npages_to_vmap;
 			++j) {
 			ptr = vmap(&pages[i], npages_to_vmap,

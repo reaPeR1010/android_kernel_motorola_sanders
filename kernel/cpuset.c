@@ -1468,6 +1468,24 @@ out_unlock:
 	return ret;
 }
 
+static int cpuset_allow_attach(struct cgroup_subsys_state *css,
+				struct cgroup_taskset *tset)
+{
+	const struct cred *cred = current_cred(), *tcred;
+	struct task_struct *task;
+
+	cgroup_taskset_for_each(task, tset) {
+		tcred = __task_cred(task);
+
+		if ((current != task) && !capable(CAP_SYS_ADMIN) &&
+			!uid_eq(cred->euid, tcred->uid) &&
+			!uid_eq(cred->euid, tcred->suid))
+			return -EACCES;
+	}
+
+	return 0;
+}
+
 static void cpuset_cancel_attach(struct cgroup_subsys_state *css,
 				 struct cgroup_taskset *tset)
 {
@@ -2054,14 +2072,11 @@ static void cpuset_bind(struct cgroup_subsys_state *root_css)
 	mutex_lock(&cpuset_mutex);
 	mutex_lock(&callback_mutex);
 
-	if (cgroup_on_dfl(root_css->cgroup)) {
-		cpumask_copy(top_cpuset.cpus_allowed, cpu_possible_mask);
+	cpumask_copy(top_cpuset.cpus_allowed, cpu_possible_mask);
+	if (cgroup_on_dfl(root_css->cgroup))
 		top_cpuset.mems_allowed = node_possible_map;
-	} else {
-		cpumask_copy(top_cpuset.cpus_allowed,
-			     top_cpuset.effective_cpus);
+	else
 		top_cpuset.mems_allowed = top_cpuset.effective_mems;
-	}
 
 	mutex_unlock(&callback_mutex);
 	mutex_unlock(&cpuset_mutex);
@@ -2087,6 +2102,7 @@ struct cgroup_subsys cpuset_cgrp_subsys = {
 	.css_offline	= cpuset_css_offline,
 	.css_free	= cpuset_css_free,
 	.can_attach	= cpuset_can_attach,
+	.allow_attach	= cpuset_allow_attach,
 	.cancel_attach	= cpuset_cancel_attach,
 	.attach		= cpuset_attach,
 	.bind		= cpuset_bind,
@@ -2167,7 +2183,6 @@ hotplug_update_tasks_legacy(struct cpuset *cs,
 	bool is_empty;
 
 	mutex_lock(&callback_mutex);
-	cpumask_copy(cs->cpus_allowed, new_cpus);
 	cpumask_copy(cs->effective_cpus, new_cpus);
 	cs->mems_allowed = *new_mems;
 	cs->effective_mems = *new_mems;
@@ -2298,8 +2313,6 @@ static void cpuset_hotplug_workfn(struct work_struct *work)
 	/* synchronize cpus_allowed to cpu_active_mask */
 	if (cpus_updated) {
 		mutex_lock(&callback_mutex);
-		if (!on_dfl)
-			cpumask_copy(top_cpuset.cpus_allowed, &new_cpus);
 		cpumask_copy(top_cpuset.effective_cpus, &new_cpus);
 		mutex_unlock(&callback_mutex);
 		/* we don't mess with cpumasks of tasks in top_cpuset */

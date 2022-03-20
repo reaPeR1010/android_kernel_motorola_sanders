@@ -63,6 +63,8 @@ extern struct inodes_stat_t inodes_stat;
 extern int leases_enable, lease_break_time;
 extern int sysctl_protected_symlinks;
 extern int sysctl_protected_hardlinks;
+extern int sysctl_protected_fifos;
+extern int sysctl_protected_regular;
 
 struct buffer_head;
 typedef int (get_block_t)(struct inode *inode, sector_t iblock,
@@ -374,8 +376,10 @@ struct address_space_operations {
 	 * migrate the contents of a page to the specified target. If
 	 * migrate_mode is MIGRATE_ASYNC, it must not block.
 	 */
-	int (*migratepage) (struct address_space *,
+	int (*migratepage)(struct address_space *,
 			struct page *, struct page *, enum migrate_mode);
+	int (*isolatepage)(struct page *);
+	void (*putbackpage)(struct page *);
 	int (*launder_page) (struct page *);
 	int (*is_partially_uptodate) (struct page *, unsigned long,
 					unsigned long);
@@ -1649,6 +1653,7 @@ struct super_operations {
 #define S_AUTOMOUNT	2048	/* Automount/referral quasi-directory */
 #define S_NOSEC		4096	/* no suid or xattr security attributes */
 #define S_ENCRYPTED	16384	/* Encrypted file (using fs/crypto/) */
+#define S_RELATIME	(1 << 31) /* Update relative access times */
 
 /*
  * Note that nosuid etc flags are inode-specific: setting some file-system

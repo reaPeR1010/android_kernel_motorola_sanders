@@ -43,6 +43,8 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_ALC5623 if I2C
 	select SND_SOC_ALC5632 if I2C
 	select SND_SOC_CQ0093VC if MFD_DAVINCI_VOICECODEC
+	select SND_SOC_CS35L34 if I2C
+	select SND_SOC_CS35L35 if I2C
 	select SND_SOC_CS35L32 if I2C
 	select SND_SOC_CS42L51_I2C if I2C
 	select SND_SOC_CS42L52 if I2C && INPUT
@@ -52,6 +54,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_CS4270 if I2C
 	select SND_SOC_CS4271 if SND_SOC_I2C_AND_SPI
 	select SND_SOC_CS42XX8_I2C if I2C
+	select SND_SOC_LARGO if MFD_LARGO
 	select SND_SOC_CX20442 if TTY
 	select SND_SOC_DA7210 if I2C
 	select SND_SOC_DA7213 if I2C
@@ -100,6 +103,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_STA529 if I2C
 	select SND_SOC_STAC9766 if SND_SOC_AC97_BUS
 	select SND_SOC_TAS2552 if I2C
+	select SND_SOC_TAS2560 if I2C
 	select SND_SOC_TAS5086 if I2C
 	select SND_SOC_TLV320AIC23_I2C if I2C
 	select SND_SOC_TLV320AIC23_SPI if SPI_MASTER
@@ -120,7 +124,10 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM2200 if I2C
 	select SND_SOC_WM5100 if I2C
 	select SND_SOC_WM5102 if MFD_WM5102
-	select SND_SOC_WM5110 if MFD_WM5110
+	select SND_SOC_FLORIDA if MFD_FLORIDA
+	select SND_SOC_CLEARWATER if MFD_CLEARWATER
+	select SND_SOC_MARLEY if MFD_MARLEY
+	select SND_SOC_MOON if MFD_MOON
 	select SND_SOC_WM8350 if MFD_WM8350
 	select SND_SOC_WM8400 if MFD_WM8400
 	select SND_SOC_WM8510 if SND_SOC_I2C_AND_SPI
@@ -159,11 +166,13 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM8995 if SND_SOC_I2C_AND_SPI
 	select SND_SOC_WM8996 if I2C
 	select SND_SOC_WM8997 if MFD_WM8997
+	select SND_SOC_VEGAS if MFD_VEGAS
 	select SND_SOC_WM9081 if I2C
 	select SND_SOC_WM9090 if I2C
 	select SND_SOC_WM9705 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9712 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9713 if SND_SOC_AC97_BUS
+	select SND_SOC_FSA8500 if I2C
         help
           Normally ASoC codec drivers are only built if a machine driver which
           uses them is also built since they are only usable with a machine
@@ -181,11 +190,24 @@ config SND_SOC_88PM860X
 config SND_SOC_ARIZONA
 	tristate
 	default y if SND_SOC_WM5102=y
-	default y if SND_SOC_WM5110=y
+	default y if SND_SOC_FLORIDA=y
+	default y if SND_SOC_CLEARWATER=y
+	default y if SND_SOC_MOON=y
 	default y if SND_SOC_WM8997=y
+	default y if SND_SOC_VEGAS=y
+	default y if SND_SOC_LARGO=y
 	default m if SND_SOC_WM5102=m
-	default m if SND_SOC_WM5110=m
+	default m if SND_SOC_FLORIDA=m
+	default m if SND_SOC_CLEARWATER=m
+	default m if SND_SOC_MOON=m
 	default m if SND_SOC_WM8997=m
+	default m if SND_SOC_VEGAS=m
+	default m if SND_SOC_LARGO=m
+
+config SND_SOC_ARIZONA_M
+	tristate
+	default y if SND_SOC_MARLEY=y
+	default m if SND_SOC_MARLEY=m
 
 config SND_SOC_WM_HUBS
 	tristate
@@ -195,11 +217,19 @@ config SND_SOC_WM_HUBS
 config SND_SOC_WM_ADSP
 	tristate
 	default y if SND_SOC_WM5102=y
-	default y if SND_SOC_WM5110=y
+	default y if SND_SOC_FLORIDA=y
+	default y if SND_SOC_CLEARWATER=y
+	default y if SND_SOC_MOON=y
 	default y if SND_SOC_WM2200=y
+	default y if SND_SOC_LARGO=y
+	default y if SND_SOC_MARLEY=y
 	default m if SND_SOC_WM5102=m
-	default m if SND_SOC_WM5110=m
+	default m if SND_SOC_FLORIDA=m
+	default m if SND_SOC_CLEARWATER=m
+	default m if SND_SOC_MOON=m
 	default m if SND_SOC_WM2200=m
+	default m if SND_SOC_LARGO=m
+	default m if SND_SOC_MARLEY=m
 
 config SND_SOC_AB8500_CODEC
 	tristate
@@ -332,6 +362,16 @@ config SND_SOC_CS35L32
 	tristate "Cirrus Logic CS35L32 CODEC"
 	depends on I2C
 
+config SND_SOC_CS35L34
+	tristate "Cirrus Logic CS35L34"
+	default n
+	depends on I2C
+
+config SND_SOC_CS35L35
+	tristate "Cirrus Logic CS35L35"
+	default n
+	depends on I2C
+
 config SND_SOC_CS42L51
 	tristate
 
@@ -381,6 +421,9 @@ config SND_SOC_CS42XX8_I2C
 	depends on I2C
 	select SND_SOC_CS42XX8
 	select REGMAP_I2C
+
+config SND_SOC_LARGO
+	tristate
 
 config SND_SOC_CX20442
 	tristate
@@ -573,6 +616,22 @@ config SND_SOC_TAS2552
 	tristate "Texas Instruments TAS2552 Mono Audio amplifier"
 	depends on I2C
 
+config SND_SOC_TAS2560
+	tristate "Texas Instruments TAS2560 SmartAmp"
+	depends on I2C
+
+config TAS2560_REGMAP
+	bool "Use of RegMap API"
+	depends on SND_SOC_TAS2560
+
+config TAS2560_CODEC
+	bool "Codec Driver support"
+	depends on SND_SOC_TAS2560
+
+config TAS2560_MISC
+	bool "Misc Driver support"
+	depends on SND_SOC_TAS2560
+
 config SND_SOC_TAS5086
 	tristate "Texas Instruments TAS5086 speaker amplifier"
 	depends on I2C
@@ -698,7 +757,16 @@ config SND_SOC_WM5100
 config SND_SOC_WM5102
 	tristate
 
-config SND_SOC_WM5110
+config SND_SOC_FLORIDA
+	tristate
+
+config SND_SOC_CLEARWATER
+	tristate
+
+config SND_SOC_MARLEY
+	tristate
+
+config SND_SOC_MOON
 	tristate
 
 config SND_SOC_WM8350
@@ -831,6 +899,9 @@ config SND_SOC_WM8996
 config SND_SOC_WM8997
 	tristate
 
+config SND_SOC_VEGAS
+	tristate
+
 config SND_SOC_WM9081
 	tristate
 
@@ -869,6 +940,14 @@ config SND_SOC_TPA6130A2
 config SND_SOC_MSM_STUB
 	tristate
 
+config SND_SOC_TFA9874
+	tristate "NXP Semiconductors TFA9874 amplifier"
+	depends on I2C
+
+config SND_SOC_MODS_CODEC_SHIM
+	tristate "shim codec for mods"
+	depends on MODS_CODEC_BUS
+
 config SND_SOC_MSM_HDMI_CODEC_RX
 	bool "HDMI Audio Playback"
 	depends on FB_MSM_MDSS_HDMI_PANEL && (SND_SOC_APQ8084 || SND_SOC_MSM8994 || SND_SOC_MSM8996)
@@ -879,4 +958,7 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 config SND_SOC_MSM_HDMI_DBA_CODEC_RX
 	bool "HDMI DBA Audio Playback"
 	depends on MSM_DBA
+
+config SND_SOC_FSA8500
+	tristate
 endmenu

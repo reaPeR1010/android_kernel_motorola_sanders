@@ -54,14 +54,14 @@
 			compatible = "android,firmware";
 			fstab {
 				compatible = "android,fstab";
-				vendor {
-					compatible = "android,vendor";
-					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/vendor";
-					type = "ext4";
-					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,verify";
-					status = "ok";
-				};
+                                system {
+                                       compatible = "android,system";
+                                       dev = "/dev/block/platform/soc/7824900.sdhci/by-name/system";
+                                       type = "ext4";
+                                       mnt_flags = "ro,barrier=1,discard";
+                                       fsmgr_flags = "wait,verify";
+                                       status = "ok";
+                                };
 			};
 		};
 	};
@@ -100,7 +100,7 @@
 			reusable;
 			alloc-ranges = <0x0 0x80000000 0x0 0x10000000>;
 			alignment = <0 0x400000>;
-			size = <0 0x0800000>;
+			size = <0 0x1000000>;
 		};
 
 		secure_mem: secure_region@0 {
@@ -119,7 +119,7 @@
 		};
 
 		adsp_mem: adsp_region@0 {
-			compatible = "shared-dma-pool";
+			compatible = "removed-dma-pool";
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x400000>;
@@ -1376,6 +1376,7 @@
 		qcom,qsee-ce-hw-instance = <0>;
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,support-fde;
+		qcom,appsbl-qseecom-support;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1785,6 +1786,21 @@
 		qcom,proxy-timeout-ms = <100>;
 		qcom,firmware-name = "venus";
 		memory-region = <&venus_mem>;
+	};
+
+	mcd {
+		compatible = "qcom,mcd";
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		interrupts = <0 248 0>;
+		interrupt-names = "mcd_irq";
+		clocks = <&clock_gcc clk_crypto_clk_src>,
+			 <&clock_gcc clk_gcc_crypto_clk>,
+			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
+			 <&clock_gcc clk_gcc_crypto_axi_clk>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		qcom,ce-opp-freq = <100000000>;
 	};
 
 	qcom,msm-ssc-sensors {

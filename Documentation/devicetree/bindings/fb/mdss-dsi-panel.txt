@@ -199,6 +199,7 @@ Optional properties:
 					Requred if blpmiccontroltype is PWM
 - qcom,mdss-dsi-pwm-gpio:		PMIC gpio binding to backlight.
 					Requred if blpmiccontroltype is PWM
+- qcom,mdss-dsi-external-rst-gpio	Panel external rst gpio used in panel module,such as tp rst.
 - qcom,mdss-dsi-bl-min-level:		Specifies the min backlight level supported by the panel.
 					0 = default value.
 - qcom,mdss-dsi-bl-max-level:		Specifies the max backlight level supported by the panel.
@@ -386,6 +387,7 @@ Optional properties:
 					delay required by panel to reach functional.
 - qcom,mdss-dsi-rx-eot-ignore:		Boolean used to enable ignoring end of transmission packets.
 - qcom,mdss-dsi-tx-eot-append:		Boolean used to enable appending end of transmission packets.
+- qcom,mdss-dsi-fw-upgrade-interrupt-disable:		Boolean used to enable disabling interruption when tp fw upgrade.
 - qcom,ulps-enabled:			Boolean to enable support for Ultra Low Power State (ULPS) mode.
 - qcom,suspend-ulps-enabled:		Boolean to enable support for ULPS mode for panels during suspend state.
 - qcom,panel-roi-alignment:		Specifies the panel ROI alignment restrictions on its
@@ -531,6 +533,8 @@ Optional properites:
 					Each child represents timings settings for a specific resolution.
 - qcom,mdss-dsi-post-init-delay:        Specifies required number of frames to wait so that panel can be functional
 					to show proper display.
+- qcom,mdss-panel-off-rst-disable:	Don't pull down reset pin when panel off.
+- qcom,mdss-panel-reg-read-lp-enable:	Use dsi_lp_mode when read reg.
 
 Additional properties added to the second level nodes that represent timings properties:
 - qcom,mdss-dsi-timing-default:		Property that specifies the current child as the default

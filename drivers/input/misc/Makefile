@@ -1,4 +1,4 @@
-#
+
 # Makefile for the input misc drivers.
 #
 
@@ -86,3 +86,29 @@ endif
 obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
 obj-$(CONFIG_INPUT_PIXART_OTS_PAT9125_SWITCH)	+= ots_pat9125/
 obj-$(CONFIG_STMVL53L0X)	+= vl53l0x/
+obj-$(CONFIG_STMVL53L0)	+= vl53L0/
+obj-$(CONFIG_STMVL53L0_2017)	+= vl53L0_2017/
+obj-$(CONFIG_STMVL53L1)	+= vl53L1/
+obj-$(CONFIG_SENSORS_FPC_1020)          += fpc1020_tee.o
+obj-$(CONFIG_SENSORS_FPC_PLATFORM_1020)	+= fpc1020_platform_tee.o
+obj-$(CONFIG_INPUT_EGISTEC_320)         += et320-int.o navi_input.o
+obj-$(CONFIG_INPUT_EGISTEC_5XX)         += et320-int.o navi_input.o
+obj-$(CONFIG_INPUT_SX9310)		+= sx9310.o
+obj-$(CONFIG_INPUT_SX9310_TRIPLE)	+= sx9310_triple.o
+obj-$(CONFIG_EPL8802)  += epl8802.o
+obj-$(CONFIG_SENSORS_BMA25X)	+= bstclass.o
+obj-$(CONFIG_SENSORS_BMA25X)	+= bma25x.o
+ifeq ($(CONFIG_SENSORS_BMA25X_ENABLE_INT1),y)
+	EXTRA_CFLAGS += -DBMA25X_ENABLE_INT1
+endif
+ifeq ($(CONFIG_SENSORS_BMA25X_ENABLE_INT2),y)
+	EXTRA_CFLAGS += -DBMA25X_ENABLE_INT2
+endif
+ifeq ($(CONFIG_INPUT_EGISTEC_5XX),y)
+	EXTRA_CFLAGS += -DET_5XX_SERIES
+endif
+obj-$(CONFIG_SENSORS_AKM09911)		+= akm09911.o
+obj-$(CONFIG_EPL8802_ALSPS)  += epl8802_alsps.o
+obj-$(CONFIG_INPUT_MXG3300)  += mxg3300.o
+obj-$(CONFIG_LTR559)			+= ltr559.o
+obj-$(CONFIG_INPUT_ABOV)		+= abov_sar.o

@@ -36,9 +36,11 @@ static void *seq_buf_alloc(unsigned long size)
 {
 	void *buf;
 
-	buf = kmalloc(size, GFP_KERNEL | __GFP_NOWARN);
-	if (!buf && size > PAGE_SIZE)
+	if (size > PAGE_SIZE)
 		buf = vmalloc(size);
+	else
+		buf = kmalloc(size, GFP_KERNEL | __GFP_NOWARN);
+
 	return buf;
 }
 
@@ -70,8 +72,8 @@ int seq_open(struct file *file, const struct seq_operations *op)
 	mutex_init(&p->lock);
 	p->op = op;
 
-	// No refcounting: the lifetime of 'p' is constrained
-	// to the lifetime of the file.
+	/* No refcounting: the lifetime of 'p' is constrained
+	to the lifetime of the file.*/
 	p->file = file;
 
 	/*
@@ -648,7 +650,7 @@ int seq_release_private(struct inode *inode, struct file *file)
 {
 	struct seq_file *seq = file->private_data;
 
-	kfree(seq->private);
+	kvfree(seq->private);
 	seq->private = NULL;
 	return seq_release(inode, file);
 }
@@ -661,7 +663,10 @@ void *__seq_open_private(struct file *f, const struct seq_operations *ops,
 	void *private;
 	struct seq_file *seq;
 
-	private = kzalloc(psize, GFP_KERNEL);
+	if (psize > PAGE_SIZE)
+		private = vzalloc(psize);
+	else
+		private = kzalloc(psize, GFP_KERNEL);
 	if (private == NULL)
 		goto out;
 
@@ -674,7 +679,7 @@ void *__seq_open_private(struct file *f, const struct seq_operations *ops,
 	return private;
 
 out_free:
-	kfree(private);
+	kvfree(private);
 out:
 	return NULL;
 }

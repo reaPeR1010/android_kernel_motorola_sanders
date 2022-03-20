@@ -1303,6 +1303,8 @@ struct afe_mod_enable_param {
  * #AFE_MODULE_SIDETONE_IIR_FILTER module.
  */
 #define AFE_PARAM_ID_SIDETONE_IIR_FILTER_CONFIG	0x00010204
+#define MAX_SIDETONE_IIR_DATA_SIZE		220
+#define MAX_NO_IIR_FILTER_STAGE			10
 
 struct afe_sidetone_iir_filter_config_params {
 	u16                  num_biquad_stages;
@@ -1314,6 +1316,7 @@ struct afe_sidetone_iir_filter_config_params {
 /* Pregain for the compensating filter response.
  * Supported values: Any number in Q13 format
  */
+	uint8_t              iir_config[MAX_SIDETONE_IIR_DATA_SIZE];
 } __packed;
 
 #define AFE_MODULE_LOOPBACK	0x00010205
@@ -1464,6 +1467,63 @@ struct afe_loopback_cfg_v1 {
  */
 
 } __packed;
+
+
+struct afe_loopback_sidetone_gain {
+	uint16_t                  rx_port_id;
+/* Rx port of the loopback.
+*/
+	uint16_t                  gain;
+/* Loopback gain per path of the port.
+ */
+} __packed;
+
+struct loopback_cfg_data {
+	u32		loopback_cfg_minor_version;
+/* Minor version used for tracking the version of the RMC module
+ * configuration interface.
+ * Supported values: #AFE_API_VERSION_LOOPBACK_CONFIG
+ */
+	u16                  dst_port_id;
+	/* Destination Port Id. */
+	u16                  routing_mode;
+/* Specifies data path type from src to dest port.
+ * Supported values:
+ * #LB_MODE_DEFAULT
+ * #LB_MODE_SIDETONE
+ * #LB_MODE_EC_REF_VOICE_AUDIO
+ * #LB_MODE_EC_REF_VOICE_A
+ * #LB_MODE_EC_REF_VOICE
+ */
+
+	u16                  enable;
+/* Specifies whether to enable (1) or
+ * disable (0) an AFE loopback.
+ */
+	u16                  reserved;
+/* Reserved for 32-bit alignment. This field must be set to 0.
+ */
+} __packed;
+
+
+struct afe_st_loopback_cfg_v1 {
+	struct apr_hdr	hdr;
+	struct afe_port_cmd_set_param_v2  param;
+	struct afe_port_param_data_v2     gain_pdata;
+	struct afe_loopback_sidetone_gain gain_data;
+	struct afe_port_param_data_v2     cfg_pdata;
+	struct loopback_cfg_data          cfg_data;
+} __packed;
+
+struct afe_loopback_iir_cfg_v2 {
+	struct apr_hdr                    hdr;
+	struct afe_port_cmd_set_param_v2  param;
+	struct afe_port_param_data_v2     st_iir_enable_pdata;
+	struct afe_mod_enable_param       st_iir_mode_enable_data;
+	struct afe_port_param_data_v2     st_iir_filter_config_pdata;
+	struct afe_sidetone_iir_filter_config_params st_iir_filter_config_data;
+} __packed;
+
 
 #define AFE_MODULE_SPEAKER_PROTECTION	0x00010209
 #define AFE_PARAM_ID_SPKR_PROT_CONFIG	0x0001020a
@@ -3105,6 +3165,7 @@ struct afe_lpass_core_shared_clk_config_command {
 #define VPM_TX_DM_FLUENCE_COPP_TOPOLOGY			0x00010F72
 #define VPM_TX_QMIC_FLUENCE_COPP_TOPOLOGY		0x00010F75
 #define VPM_TX_DM_RFECNS_COPP_TOPOLOGY			0x00010F86
+#define VPM_TX_MOT_COPP_TOPOLOGY			0x1000E004
 #define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX		0x10015002
 #define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_AUDIOSPHERE	0x10028000
 
@@ -3391,8 +3452,6 @@ struct asm_softvolume_params {
 
 #define ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V3 0x00010DDC
 
-#define ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V4 0x0001320C
-
 #define ASM_MEDIA_FMT_EVRCB_FS 0x00010BEF
 
 #define ASM_MEDIA_FMT_EVRCWB_FS 0x00010BF0
@@ -3495,56 +3554,6 @@ struct asm_multi_channel_pcm_fmt_blk_v3 {
  */
 } __packed;
 
-struct asm_multi_channel_pcm_fmt_blk_v4 {
-	uint16_t                num_channels;
-/*
- * Number of channels
- * Supported values: 1 to 8
- */
-
-	uint16_t                bits_per_sample;
-/*
- * Number of bits per sample per channel
- * Supported values: 16, 24, 32
- */
-
-	uint32_t                sample_rate;
-/*
- * Number of samples per second
- * Supported values: 2000 to 48000, 96000,192000 Hz
- */
-
-	uint16_t                is_signed;
-/* Flag that indicates that PCM samples are signed (1) */
-
-	uint16_t                sample_word_size;
-/*
- * Size in bits of the word that holds a sample of a channel.
- * Supported values: 12,24,32
- */
-
-	uint8_t                 channel_mapping[8];
-/*
- * Each element, i, in the array describes channel i inside the buffer where
- * 0 <= i < num_channels. Unused channels are set to 0.
- */
-	uint16_t                endianness;
-/*
- * Flag to indicate the endianness of the pcm sample
- * Supported values: 0 - Little endian (all other formats)
- *                   1 - Big endian (AIFF)
- */
-	uint16_t                mode;
-/*
- * Mode to provide additional info about the pcm input data.
- * Supported values: 0 - Default QFs (Q15 for 16b, Q23 for packed 24b,
- *                       Q31 for unpacked 24b or 32b)
- *                  15 - for 16 bit
- *                  23 - for 24b packed or 8.24 format
- *                  31 - for 24b unpacked or 32bit
- */
-} __packed;
-
 /*
  * Payload of the multichannel PCM configuration parameters in
  * the ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V3 media format.
@@ -3553,16 +3562,6 @@ struct asm_multi_channel_pcm_fmt_blk_param_v3 {
 	struct apr_hdr hdr;
 	struct asm_data_cmd_media_fmt_update_v2 fmt_blk;
 	struct asm_multi_channel_pcm_fmt_blk_v3 param;
-} __packed;
-
-/*
- * Payload of the multichannel PCM configuration parameters in
- * the ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V4 media format.
- */
-struct asm_multi_channel_pcm_fmt_blk_param_v4 {
-	struct apr_hdr hdr;
-	struct asm_data_cmd_media_fmt_update_v2 fmt_blk;
-	struct asm_multi_channel_pcm_fmt_blk_v4 param;
 } __packed;
 
 struct asm_stream_cmd_set_encdec_param {
@@ -3600,79 +3599,6 @@ struct asm_dec_ddp_endp_param_v2 {
 	int endp_param_value;
 } __packed;
 
-/*
- * Payload of the multichannel PCM encoder configuration parameters in
- * the ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V4 media format.
- */
-
-struct asm_multi_channel_pcm_enc_cfg_v4 {
-	struct apr_hdr hdr;
-	struct asm_stream_cmd_set_encdec_param encdec;
-	struct asm_enc_cfg_blk_param_v2 encblk;
-	uint16_t num_channels;
-	/*
-	 * Number of PCM channels.
-	 * @values
-	 * - 0 -- Native mode
-	 * - 1 -- 8 channels
-	 * Native mode indicates that encoding must be performed with the number
-	 * of channels at the input.
-	 */
-	uint16_t  bits_per_sample;
-	/*
-	 * Number of bits per sample per channel.
-	 * @values 16, 24
-	 */
-	uint32_t  sample_rate;
-	/*
-	 * Number of samples per second.
-	 * @values 0, 8000 to 48000 Hz
-	 * A value of 0 indicates the native sampling rate. Encoding is
-	 * performed at the input sampling rate.
-	 */
-	uint16_t  is_signed;
-	/*
-	 * Flag that indicates the PCM samples are signed (1). Currently, only
-	 * signed PCM samples are supported.
-	 */
-	uint16_t    sample_word_size;
-	/*
-	 * The size in bits of the word that holds a sample of a channel.
-	 * @values 16, 24, 32
-	 * 16-bit samples are always placed in 16-bit words:
-	 * sample_word_size = 1.
-	 * 24-bit samples can be placed in 32-bit words or in consecutive
-	 * 24-bit words.
-	 * - If sample_word_size = 32, 24-bit samples are placed in the
-	 * most significant 24 bits of a 32-bit word.
-	 * - If sample_word_size = 24, 24-bit samples are placed in
-	 * 24-bit words. @tablebulletend
-	 */
-	uint8_t   channel_mapping[8];
-	/*
-	 * Channel mapping array expected at the encoder output.
-	 *  Channel[i] mapping describes channel i inside the buffer, where
-	 *  0 @le i < num_channels. All valid used channels must be present at
-	 *  the beginning of the array.
-	 * If Native mode is set for the channels, this field is ignored.
-	 * @values See Section @xref{dox:PcmChannelDefs}
-	 */
-	uint16_t                endianness;
-	/*
-	 * Flag to indicate the endianness of the pcm sample
-	 * Supported values: 0 - Little endian (all other formats)
-	 *                   1 - Big endian (AIFF)
-	 */
-	uint16_t                mode;
-	/*
-	 * Mode to provide additional info about the pcm input data.
-	 * Supported values: 0 - Default QFs (Q15 for 16b, Q23 for packed 24b,
-	 *                       Q31 for unpacked 24b or 32b)
-	 *                  15 - for 16 bit
-	 *                  23 - for 24b packed or 8.24 format
-	 *                  31 - for 24b unpacked or 32bit
-	 */
-} __packed;
 
 /*
  * Payload of the multichannel PCM encoder configuration parameters in

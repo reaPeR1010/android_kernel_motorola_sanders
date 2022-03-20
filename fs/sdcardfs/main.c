@@ -22,6 +22,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/parser.h>
+#include <linux/xattr.h>
 
 enum {
 	Opt_fsuid,
@@ -34,6 +35,7 @@ enum {
 	Opt_reserved_mb,
 	Opt_gid_derivation,
 	Opt_default_normal,
+	Opt_nocache,
 	Opt_unshared_obb,
 	Opt_err,
 };
@@ -50,6 +52,7 @@ static const match_table_t sdcardfs_tokens = {
 	{Opt_default_normal, "default_normal"},
 	{Opt_unshared_obb, "unshared_obb"},
 	{Opt_reserved_mb, "reserved_mb=%u"},
+	{Opt_nocache, "nocache"},
 	{Opt_err, NULL}
 };
 
@@ -73,6 +76,7 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 	/* by default, gid derivation is off */
 	opts->gid_derivation = false;
 	opts->default_normal = false;
+	opts->nocache = false;
 
 	*debug = 0;
 
@@ -129,6 +133,9 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 			break;
 		case Opt_default_normal:
 			opts->default_normal = true;
+			break;
+		case Opt_nocache:
+			opts->nocache = true;
 			break;
 		case Opt_unshared_obb:
 			opts->unshared_obb = true;
@@ -371,6 +378,26 @@ static int sdcardfs_read_super(struct vfsmount *mnt, struct super_block *sb,
 	if (!silent)
 		pr_info("sdcardfs: mounted on top of %s type %s\n",
 				dev_name, lower_sb->s_type->name);
+
+#ifdef CONFIG_SDCARD_FS_DIR_WRITER
+	if (vfs_setxattr(lower_path.dentry,
+		SDCARDFS_XATTR_DWRITER_NAME,
+		CONFIG_SDCARD_FS_DIR_WRITER,
+		strlen(CONFIG_SDCARD_FS_DIR_WRITER), 0)) {
+		pr_warn("sdcardfs: failed to set %s\n",
+			SDCARDFS_XATTR_DWRITER_NAME);
+	}
+#endif
+#ifdef CONFIG_SDCARD_FS_PARTIAL_RELATIME
+	if (vfs_setxattr(lower_path.dentry,
+		SDCARDFS_XATTR_PARTIAL_RELATIME_NAME,
+		CONFIG_SDCARD_FS_PARTIAL_RELATIME,
+		strlen(CONFIG_SDCARD_FS_PARTIAL_RELATIME), 0)) {
+		pr_warn("sdcardfs: failed to set xattr %s\n",
+			SDCARDFS_XATTR_PARTIAL_RELATIME_NAME);
+	}
+#endif
+
 	goto out; /* all is well */
 
 	/* no longer needed: free_dentry_private_data(sb->s_root); */

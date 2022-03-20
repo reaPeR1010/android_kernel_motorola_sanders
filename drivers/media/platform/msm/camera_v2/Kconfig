@@ -262,3 +262,46 @@ config MSM_SEC_CCI_DEBUG
 	---help---
 	  Enables simulation of secure camera for Secure CCI Realy
 	  debugging.
+
+config DEBUG_CAMERA
+	bool "Enable Camera Debug"
+	depends on MSMB_CAMERA && DEBUG_FS
+	default n
+	---help---
+		Enable camera debug support.
+config CAMERA_CSID_DEBUG
+	bool "Enable CSID Debug"
+	default n
+	---help---
+		Enable csid debug support.
+
+config QPNP_FLASH_STROBE_OVERRIDE
+	bool "Enable sensor HW strobe override"
+	depends on LEDS_QPNP_FLASH
+	default n
+	---help---
+	    Enables support for flash HW strobe override
+	    based on sensor configuration.
+
+config CAMERA_CLOCK_BOOTTIME
+	bool "Enable CAMERA_CLOCK_BOOTTIME"
+	default n
+	---help---
+		Enables support CLOCK_BOOTTIME.
+
+config MOT_CAMERA_ALT_CLOCKS
+	bool "Enable MOT_CAMERA_ALT_CLOCKS"
+	default n
+	---help---
+		Enables support for alt mclk.
+
+config MOT_CAMERA_ALT_MIPI_TERMINAL_ENABLE
+	bool "Enable MOT_CAMERA_ALT_MIPI_TERMINAL_ENABLE"
+	---help---
+		Enable support for the MIPI signal for
+		Terminal_Enable timing.
+config MULTI_CAMERA_DEEN
+	bool "Enable MULTI_CAMERA_DEEN"
+	default n
+	---help---
+		Enable support for the MULTI camera

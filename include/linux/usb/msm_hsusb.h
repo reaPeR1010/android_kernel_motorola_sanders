@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
- * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -122,7 +122,11 @@ enum msm_usb_phy_type {
 
 #define IDEV_CHG_MAX	1500
 #define IUNIT		100
+#define IDEV_CHG_MIN	500
 #define IDEV_HVDCP_CHG_MAX	1800
+#define IDEV_CHG_TA	1100
+#define IDEV_CHG_DCP	1300
+#define IDEV_CHG_PROP	1000
 
 /**
  * Different states involved in USB charger detection.
@@ -410,6 +414,7 @@ struct msm_otg_platform_data {
  * @buf: Dynamic Debug Buffer.
  * @max_nominal_system_clk_rate: max freq at which system clock can run in
 		nominal mode.
+ * @falsesdp_retry_count: Counter for number of FALSE_SDP retries
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -523,7 +528,6 @@ struct msm_otg {
 #define PHY_REGULATORS_LPM	BIT(4)
 	int reset_counter;
 	struct power_supply usb_psy;
-	enum power_supply_type usb_supply_type;
 	unsigned int online;
 	unsigned int host_mode;
 	unsigned int voltage_max;
@@ -559,6 +563,8 @@ struct msm_otg {
 	int pm_qos_latency;
 	struct pm_qos_request pm_qos_req_dma;
 	struct delayed_work perf_vote_work;
+	int falsesdp_retry_count;
+	unsigned int chg_dcp_icl;
 };
 
 struct ci13xxx_platform_data {

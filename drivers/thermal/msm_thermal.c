@@ -168,6 +168,9 @@ static bool vdd_rstr_nodes_called;
 static bool vdd_rstr_probed;
 static bool sensor_info_nodes_called;
 static bool sensor_info_probed;
+static bool config_info_nodes_called;
+static bool config_info_probed;
+static char *config_info;
 static bool psm_enabled;
 static bool psm_nodes_called;
 static bool psm_probed;
@@ -1524,6 +1527,9 @@ static int get_cpu_freq_plan_len(int cpu)
 {
 	int table_len = 0;
 	struct device *cpu_dev = NULL;
+	int max_cpu_freq = CONFIG_MAX_CPU_FREQ_KHZ;
+	struct dev_pm_opp *opp = NULL;
+	unsigned long freq = 0;
 
 	cpu_dev = get_cpu_device(cpu);
 	if (!cpu_dev) {
@@ -1532,18 +1538,20 @@ static int get_cpu_freq_plan_len(int cpu)
 	}
 
 	rcu_read_lock();
-	table_len = dev_pm_opp_get_opp_count(cpu_dev);
-	if (table_len <= 0) {
-		pr_err("Error reading CPU%d freq table len. error:%d\n",
-			cpu, table_len);
-		table_len = 0;
-		goto unlock_and_exit;
-	}
+	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq))) {
+		freq++;
+		if (max_cpu_freq && (freq/1000) > max_cpu_freq) {
+			pr_debug("%s: 8996-lite Ignore freqs %ld  higher than %d\n",
+				__func__, freq, max_cpu_freq);
+			continue;
+		}
 
-unlock_and_exit:
+		table_len++;
+	}
 	rcu_read_unlock();
 
 exit:
+
 	return table_len;
 }
 
@@ -1554,6 +1562,7 @@ static int get_cpu_freq_plan(int cpu,
 	struct dev_pm_opp *opp = NULL;
 	unsigned long freq = 0;
 	struct device *cpu_dev = NULL;
+	int max_cpu_freq = CONFIG_MAX_CPU_FREQ_KHZ;
 
 	cpu_dev = get_cpu_device(cpu);
 	if (!cpu_dev) {
@@ -1563,10 +1572,14 @@ static int get_cpu_freq_plan(int cpu,
 
 	rcu_read_lock();
 	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq))) {
-		/* Convert from Hz to kHz */
+		if (max_cpu_freq && (freq/1000) > max_cpu_freq) {
+			pr_debug("%s: 8996-lite Ignore freqs %ld  higher than %d\n",
+				__func__, (freq/1000), max_cpu_freq);
+			freq++;
+			continue;
+		}
+
 		freq_table_ptr[table_len].frequency = freq / 1000;
-		pr_debug("cpu%d freq %d :%d\n", cpu, table_len,
-			freq_table_ptr[table_len].frequency);
 		freq++;
 		table_len++;
 	}
@@ -3185,6 +3198,7 @@ static int __ref update_offline_cores(int val)
 				pr_err_ratelimited(
 					"Unable to offline CPU%d. err:%d\n",
 					cpu, ret);
+				cpus_offlined &= ~BIT(cpu);
 				pend_hotplug_req = true;
 			} else {
 				pr_debug("Offlined CPU%d\n", cpu);
@@ -5691,6 +5705,43 @@ static int msm_thermal_add_sensor_info_nodes(void)
 	return ret;
 }
 
+static ssize_t config_info_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", config_info);
+}
+
+static struct kobj_attribute config_info_attr =
+		__ATTR_RO(config_info);
+static int msm_thermal_add_config_info_nodes(void)
+{
+	struct kobject *module_kobj = NULL;
+	int ret = 0;
+
+	if (!config_info_probed) {
+		config_info_nodes_called = true;
+		return ret;
+	}
+
+	if (config_info == NULL)
+		return ret;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("cannot find kobject\n");
+		return -ENOENT;
+	}
+	sysfs_attr_init(&config_info_attr.attr);
+	ret = sysfs_create_file(module_kobj, &config_info_attr.attr);
+	if (ret) {
+		pr_err(
+		"cannot create config_info kobject attribute. err:%d\n",
+		ret);
+		return ret;
+	}
+	return ret;
+}
+
 static int msm_thermal_add_vdd_rstr_nodes(void)
 {
 	struct kobject *module_kobj = NULL;
@@ -6642,6 +6693,24 @@ read_node_fail:
 			__func__, np->full_name, key, err);
 		devm_kfree(&pdev->dev, sensors);
 	}
+}
+
+static void probe_config_info(struct device_node *node,
+		struct msm_thermal_data *data, struct platform_device *pdev)
+{
+	int ret;
+	int size;
+	const char *tmp_str = NULL;
+
+	config_info_probed = true;
+	ret = of_property_read_string(node, "qcom,config-info", &tmp_str);
+	if (ret)
+		return;
+
+	size = strlen(tmp_str)+1;
+	config_info = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+	if (config_info)
+		snprintf(config_info, size, "%s", tmp_str);
 }
 
 static int probe_ocr(struct device_node *node, struct msm_thermal_data *data,
@@ -7675,6 +7744,9 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = probe_vdd_rstr(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)
 		goto fail;
+
+	probe_config_info(node, &data, pdev);
+
 	ret = probe_ocr(node, &data, pdev);
 
 	ret = probe_therm_dynamic_hw_sampling(node, &data, pdev);
@@ -7700,6 +7772,10 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	if (sensor_info_nodes_called) {
 		msm_thermal_add_sensor_info_nodes();
 		sensor_info_nodes_called = false;
+	}
+	if (config_info_nodes_called) {
+		msm_thermal_add_config_info_nodes();
+		config_info_nodes_called = false;
 	}
 	if (ocr_nodes_called) {
 		msm_thermal_add_ocr_nodes();
@@ -7795,6 +7871,8 @@ static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 
 		kfree(thresh);
 		thresh = NULL;
+
+		devm_kfree(&inp_dev->dev, config_info);
 	}
 	kfree(table);
 	if (core_ptr) {
@@ -7851,6 +7929,7 @@ int __init msm_thermal_late_init(void)
 	msm_thermal_add_psm_nodes();
 	msm_thermal_add_vdd_rstr_nodes();
 	msm_thermal_add_sensor_info_nodes();
+	msm_thermal_add_config_info_nodes();
 	if (ocr_reg_init_defer) {
 		if (!ocr_reg_init(msm_thermal_info.pdev)) {
 			ocr_enabled = true;

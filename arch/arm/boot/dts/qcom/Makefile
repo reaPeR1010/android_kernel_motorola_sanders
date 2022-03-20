@@ -1,3 +1,5 @@
+# Do not include QC default DTBs if not needed
+ifneq ($(CONFIG_MMI_DEVICE_DTBS),y)
 dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-mtp.dtb \
 	msm8996-v2-pmi8994-pmk8001-mtp.dtb \
 	msm8996-v2-pmi8994-pm8004-mtp.dtb \
@@ -130,6 +132,39 @@ dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-v2-rumi.dtb \
 	msmcobalt-v2-mtp.dtb \
 	msmcobalt-v2-cdp.dtb
+endif # CONFIG_MMI_DEVICE_DTBS
+
+# Motorola Device Trees
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-princeton-p1.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-princeton-p2.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-sheridan-p1a.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-griffin-p1a.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-sheridan-p1b.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-griffin-p1b.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-sheridan-p2a.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-griffin-p2a.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-sheridan-p2c.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-griffin-p2c.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996pro-sheridan-p2a.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996pro-griffin-p2a.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996pro-sheridan-p2c.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996pro-griffin-p2c.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-sheridan-p3a.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-griffin-p3a.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996pro-sheridan-p3a.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996pro-griffin-p3a.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-sheridan-p3b.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-griffin-p3b.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996pro-sheridan-p3b.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996pro-griffin-p3b.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-wabash-p1.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996pro-wabash-p1.dtb
+
+ifeq ($(CONFIG_MMI_DEVICE_DTBS),y)
+# Add 1k of padding to the DTBs to allow for environment variables
+# to be runtime added by the bootloader (i.e. /chosen properties)
+DTC_FLAGS := -p 1024
+endif
 
 dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
 	mdm9640-rumi.dtb \
@@ -173,6 +208,8 @@ dtb-$(CONFIG_ARCH_SDX20) += sdx20-emmc-cdp.dtb \
 	sdx20-v2-emmc-pcie-ep-mtp.dtb \
 	sdx20-v2-nand-pcie-ep-mtp.dtb
 
+# Do not include QC default DTBs if not needed
+ifneq ($(CONFIG_MMI_DEVICE_DTBS),y)
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	msm8937-pmi8950-cdp.dtb \
 	msm8937-pmi8937-cdp.dtb \
@@ -265,6 +302,7 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	msm8953-pmi8937-mtp.dtb \
 	msm8953-pmi8940-ext-codec-mtp.dtb \
 	msm8953-pmi8937-ext-codec-mtp.dtb
+endif # CONFIG_MMI_DEVICE_DTBS
 
 dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-cdp.dtb \
@@ -275,6 +313,115 @@ dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-iot-mtp.dtb \
 	sda450-cdp.dtb \
 	sda450-mtp.dtb
+
+ifeq ($(CONFIG_ADDISON_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-addison-p1.dtb \
+	msm8953-addison-p2a.dtb \
+	msm8953-addison-p3.dtb \
+	msm8953-addison-p4.dtb \
+	msm8953-addison-p7.dtb
+endif
+
+ifeq ($(CONFIG_POTTER_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-potter-p0a.dtb \
+	msm8953-potter-p1a.dtb \
+	msm8953-potter-p1b.dtb \
+	msm8953-potter-p2a.dtb \
+	msm8953-potter-p2a2.dtb \
+	msm8953-potter-p2b.dtb \
+	msm8953-potter-p3a.dtb
+endif
+
+ifeq ($(CONFIG_ALBUS_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-albus-p0.dtb
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-albus-p1.dtb
+endif
+
+ifeq ($(CONFIG_JOHNSON_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-johnson-p0.dtb \
+	msm8953-johnson-p0b.dtb \
+	sdm450-johnson-evb3.dtb \
+	sdm450-johnson-evt1.dtb
+endif
+
+ifeq ($(CONFIG_ALI_DTB),y)
+dtb-$(CONFIG_ARCH_SDM450) += sdm450-ali-evt1.dtb
+dtb-$(CONFIG_ARCH_SDM450) += sdm450-ali-dvt1a.dtb
+dtb-$(CONFIG_ARCH_SDM450) += sdm450-ali-dvt1b.dtb
+dtb-$(CONFIG_ARCH_SDM450) += sdm450-ali-dvt2.dtb
+dtb-$(CONFIG_ARCH_SDM450) += sdm450-ali-pvt1.dtb
+dtb-$(CONFIG_ARCH_SDM450) += sdm450-ali-pvt2.dtb
+endif
+
+ifeq ($(CONFIG_DEEN_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-deen-evt1.dtb
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-deen-evt2.dtb
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-deen-dvt1a.dtb
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-deen-dvt1b.dtb
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-deen-dvt2.dtb
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-deen-pvt1.dtb
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-deen-pvt2.dtb
+endif
+
+ifeq ($(CONFIG_SANDERS_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sanders-p1.dtb \
+	msm8953-sanders-p2.dtb \
+	msm8953-sanders-p3.dtb \
+	msm8953-sanders-p4.dtb
+endif
+
+ifeq ($(CONFIG_PERRY_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8937) += msm8917-perry-p0.dtb
+dtb-$(CONFIG_ARCH_MSM8920) += msm8920-perry-p1.dtb
+endif
+
+ifeq ($(CONFIG_JAMES_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8917) += msm8917-james-p0.dtb
+dtb-$(CONFIG_ARCH_MSM8920) += msm8920-james-p0.dtb
+endif
+
+ifeq ($(CONFIG_JETER_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8917) += msm8917-jeter-p0.dtb
+dtb-$(CONFIG_ARCH_MSM8920) += msm8920-jeter-p0.dtb
+dtb-$(CONFIG_ARCH_MSM8920) += msm8920-jeter-p3.dtb
+dtb-$(CONFIG_ARCH_MSM8937) += msm8937-jeter-p0.dtb
+endif
+
+ifeq ($(CONFIG_NORA_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8917) += msm8917-nora-p0.dtb
+dtb-$(CONFIG_ARCH_MSM8920) += msm8920-nora-p0.dtb
+endif
+
+ifeq ($(CONFIG_PETTYL_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8917) += msm8917-pettyl-p0.dtb
+endif
+
+ifeq ($(CONFIG_OWENS_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8920) += msm8920-owens-p0.dtb
+dtb-$(CONFIG_ARCH_MSM8920) += msm8920-owens-p1.dtb
+endif
+
+ifeq ($(CONFIG_HANNAH_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8917) += msm8917-hannah-p0.dtb
+dtb-$(CONFIG_ARCH_MSM8937) += msm8937-hannah-p0.dtb
+dtb-$(CONFIG_ARCH_MSM8940) += msm8940-hannah-p0.dtb
+endif
+
+ifeq ($(CONFIG_CEDRIC_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8937) += msm8937-cedric-p1.dtb \
+	msm8937-cedric-p2.dtb \
+	msm8937-cedric-p3.dtb \
+	msm8937-cedric-p4.dtb \
+	msm8937-cedric-p5.dtb
+endif
+
+ifeq ($(CONFIG_MONTANA_DTB),y)
+dtb-$(CONFIG_ARCH_MSM8937) += msm8937-montana-p0.dtb \
+	msm8937-montana-p1a.dtb \
+	msm8937-montana-p1b.dtb \
+	msm8937-montana-p2.dtb \
+	msm8937-montana-p3.dtb
+endif
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
 	mdm9607-cdp.dtb \
@@ -288,10 +435,13 @@ dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
 	mdm9206-rcm.dtb \
 	mdm9207c-mtp.dtb
 
+# Do not include QC default DTBs if not needed
+ifneq ($(CONFIG_MMI_DEVICE_DTBS),y)
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \
        msm8952-ext-codec-cdp.dtb \
        msm8952-mtp.dtb
+endif # CONFIG_MMI_DEVICE_DTBS
 
 dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909-cdp.dtb \

@@ -68,6 +68,12 @@ struct mmc_ext_csd {
 	unsigned int		generic_cmd6_time;	/* Units: 10ms */
 	unsigned int            power_off_longtime;     /* Units: ms */
 	u8			power_off_notification;	/* state */
+	u32			drv_type;		/* eMMC Driver type */
+#define MMC_DRIVER_TYPE_0	0x01
+#define MMC_DRIVER_TYPE_1	0x02
+#define MMC_DRIVER_TYPE_2	0x04
+#define MMC_DRIVER_TYPE_3	0x08
+#define MMC_DRIVER_TYPE_4	0x10
 	unsigned int		hs_max_dtr;
 	unsigned int		hs200_max_dtr;
 #define MMC_HIGH_26_MAX_DTR	26000000
@@ -87,6 +93,8 @@ struct mmc_ext_csd {
 	bool			hpi_en;			/* HPI enablebit */
 	bool			hpi;			/* HPI support bit */
 	unsigned int		hpi_cmd;		/* cmd used as HPI */
+	bool			ffu_capable;		/* FFU support */
+	bool			ffu_mode_op;		/* FFU mode operation */
 	bool			bkops;		/* background support bit */
 	u8			bkops_en;	/* background enable */
 	unsigned int            data_sector_size;       /* 512 bytes or 4KB */
@@ -95,6 +103,8 @@ struct mmc_ext_csd {
 	bool			boot_ro_lockable;
 	u8			raw_ext_csd_cmdq;	/* 15 */
 	u8			raw_ext_csd_cache_ctrl;	/* 33 */
+#define MMC_FIRMWARE_LEN 8
+	u8			fwrev[MMC_FIRMWARE_LEN];  /* FW version */
 	u8			raw_exception_status;	/* 54 */
 	u8			raw_partition_support;	/* 160 */
 	u8			raw_rpmb_size_mult;	/* 168 */
@@ -137,6 +147,8 @@ struct mmc_ext_csd {
 	u8			device_life_time_est_typ_b;	/* 269 */
 
 	u8			fw_version;		/* 254 */
+#define MMC_DEVICE_VERSION_LEN 2
+	u8			device_version[MMC_FIRMWARE_LEN];  /* 262, device version */
 	unsigned int            feature_support;
 #define MMC_DISCARD_FEATURE	BIT(0)                  /* CMD38 feature */
 };

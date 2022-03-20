@@ -34,6 +34,7 @@ struct msm_camera_sensor_slave_info32 {
 	char flash_name[32];
 	enum msm_sensor_camera_id_t camera_id;
 	uint16_t slave_addr;
+	uint16_t slave_addr2;
 	enum i2c_freq_mode_t i2c_freq_mode;
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	struct msm_sensor_id_info_t sensor_id_info;
@@ -94,6 +95,24 @@ struct eeprom_write_t32 {
 	uint32_t num_bytes;
 };
 
+#if defined(MULTI_CAMERA_DEEN) || defined(VENDOR_CAMERA_DEEN)
+struct bst_eeprom_read_t32 {
+uint32_t offset_addr;
+compat_uptr_t dbuffer;
+uint32_t num_bytes;
+};
+struct bst_eeprom_write_t32 {
+uint32_t offset_addr;
+compat_uptr_t dbuffer;
+uint32_t num_bytes;
+};
+struct eeprom_get_cmm_t32 {
+	uint32_t cmm_support;
+	uint32_t cmm_compression;
+	uint32_t cmm_size;
+};
+#endif
+
 struct msm_eeprom_info_t32 {
 	compat_uptr_t power_setting_array;
 	enum i2c_freq_mode_t i2c_freq_mode;
@@ -109,6 +128,11 @@ struct msm_eeprom_cfg_data32 {
 		struct eeprom_read_t32 read_data;
 		struct eeprom_write_t32 write_data;
 		struct msm_eeprom_info_t32 eeprom_info;
+#if defined(MULTI_CAMERA_DEEN) || defined(VENDOR_CAMERA_DEEN)
+		struct eeprom_get_cmm_t32 get_cmm_data;
+		struct bst_eeprom_read_t32 bst_read_data;
+		struct bst_eeprom_write_t32 bst_write_data;
+#endif
 	} cfg;
 };
 
@@ -132,6 +156,11 @@ struct msm_camera_i2c_array_write_config32 {
 	uint16_t slave_addr;
 };
 
+struct msm_mot_actuator_tuning_params_t32 {
+	int16_t infinity_dac;
+	int16_t macro_dac;
+};
+
 struct msm_actuator_tuning_params_t32 {
 	int16_t initial_code;
 	uint16_t pwd_step;
@@ -152,11 +181,13 @@ struct msm_actuator_params_t32 {
 	compat_uptr_t reg_tbl_params;
 	compat_uptr_t init_settings;
 	struct park_lens_data_t park_lens;
+	struct msm_actuator_get_pos_cfg_t get_pos_cfg;
 };
 
 struct msm_actuator_set_info_t32 {
 	struct msm_actuator_params_t32 actuator_params;
 	struct msm_actuator_tuning_params_t32 af_tuning_params;
+	struct msm_mot_actuator_tuning_params_t32 mot_af_tuning_params;
 };
 
 struct sensor_init_cfg_data32 {
@@ -185,6 +216,7 @@ struct msm_actuator_cfg_data32 {
 		struct msm_actuator_set_info_t32 set_info;
 		struct msm_actuator_get_info_t get_info;
 		struct msm_actuator_set_position_t setpos;
+		struct msm_actuator_get_position_t getpos;
 		enum af_camera_name cam_name;
 	} cfg;
 };
@@ -241,6 +273,8 @@ struct msm_flash_cfg_data_t32 {
 	enum msm_flash_cfg_type_t cfg_type;
 	int32_t flash_current[MAX_LED_TRIGGERS];
 	int32_t flash_duration[MAX_LED_TRIGGERS];
+	enum flash_position position;
+	enum mux_sel_option mux_sel;
 	union {
 		compat_uptr_t flash_init_info;
 		compat_uptr_t settings;

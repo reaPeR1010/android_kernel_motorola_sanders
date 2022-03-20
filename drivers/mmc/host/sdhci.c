@@ -66,6 +66,7 @@ static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable);
 static void sdhci_show_adma_error(struct sdhci_host *host);
 static bool sdhci_check_state(struct sdhci_host *);
 static void sdhci_enable_sdio_irq_nolock(struct sdhci_host *host, int enable);
+static int sdhci_do_get_cd(struct sdhci_host *host);
 
 #ifdef CONFIG_PM_RUNTIME
 static int sdhci_runtime_pm_get(struct sdhci_host *host);
@@ -179,6 +180,11 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 		host->ops->dump_vendor_regs(host);
 	sdhci_dump_state(host);
 	pr_info(DRIVER_NAME ": ===========================================\n");
+//MMI_SHOPSHIP for micron 4.3 FW have timeout issue.BUG_ON can trigger reboot for MMC FW upgrading
+#ifdef CONFIG_SDHCI_DUMPREG_DEBUG_PANIC
+	if (mmc_card_mmc(host->mmc->card))
+		BUG_ON(true);
+#endif
 }
 
 /*****************************************************************************\
@@ -1727,8 +1733,12 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	sdhci_runtime_pm_get(host);
 	if (sdhci_check_state(host)) {
-		sdhci_dump_state(host);
-		WARN(1, "sdhci in bad state");
+		if (sdhci_do_get_cd(host)) {
+			sdhci_dump_state(host);
+			WARN(1, "sdhci in bad state");
+		} else
+			pr_warn("%s(%s): card removed\n",
+				__func__, mmc_hostname(mmc));
 		mrq->cmd->error = -EIO;
 		if (mrq->data)
 			mrq->data->error = -EIO;
@@ -2701,6 +2711,17 @@ static void sdhci_card_event(struct mmc_host *mmc)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+static int sdhci_select_drive_strength(struct mmc_host *mmc, int host_drv,
+		int card_drv)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops && host->ops->select_drive_strength)
+		return host->ops->select_drive_strength(host, host_drv,
+				card_drv);
+	return 0;
+}
+
 static int sdhci_late_init(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -2737,6 +2758,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.enhanced_strobe		= sdhci_enhanced_strobe,
 	.card_event			= sdhci_card_event,
 	.card_busy	= sdhci_card_busy,
+	.select_drive_strength          = sdhci_select_drive_strength,
 	.enable		= sdhci_enable,
 	.disable	= sdhci_disable,
 	.notify_load	= sdhci_notify_load,

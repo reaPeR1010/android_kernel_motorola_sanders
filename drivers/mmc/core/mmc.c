@@ -454,8 +454,6 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	card->ext_csd.raw_card_type = ext_csd[EXT_CSD_CARD_TYPE];
 	mmc_select_card_type(card);
 
-	card->ext_csd.raw_drive_strength = ext_csd[EXT_CSD_DRIVE_STRENGTH];
-
 	card->ext_csd.raw_s_a_timeout = ext_csd[EXT_CSD_S_A_TIMEOUT];
 	card->ext_csd.raw_erase_timeout_mult =
 		ext_csd[EXT_CSD_ERASE_TIMEOUT_MULT];
@@ -660,6 +658,8 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			ext_csd[EXT_CSD_MAX_PACKED_WRITES];
 		card->ext_csd.max_packed_reads =
 			ext_csd[EXT_CSD_MAX_PACKED_READS];
+		card->ext_csd.raw_drive_strength =
+			ext_csd[EXT_CSD_DRIVE_STRENGTH];
 	} else {
 		card->ext_csd.data_sector_size = 512;
 	}
@@ -694,6 +694,12 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 				mmc_hostname(card->host),
 				card->ext_csd.barrier_support,
 				card->ext_csd.cache_flush_policy);
+
+		card->ext_csd.ffu_capable =
+			((ext_csd[EXT_CSD_SUPPORTED_MODE] & 0x1) == 0x1) &&
+			((ext_csd[EXT_CSD_FW_CONFIG] & 0x1) == 0x0);
+		card->ext_csd.ffu_mode_op = ext_csd[EXT_CSD_FFU_FEATURES];
+
 	} else {
 		card->ext_csd.cmdq_support = 0;
 		card->ext_csd.cmdq_depth = 0;
@@ -703,6 +709,14 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 
 	/* eMMC v5 or later */
 	if (card->ext_csd.rev >= 7) {
+		memcpy(card->ext_csd.fwrev, &ext_csd[EXT_CSD_FW_VERSION],
+		       MMC_FIRMWARE_LEN);
+		memcpy(card->ext_csd.device_version, &ext_csd[EXT_CSD_DEVICE_VERSION],
+		       MMC_DEVICE_VERSION_LEN);
+		card->ext_csd.ffu_capable =
+			(ext_csd[EXT_CSD_SUPPORTED_MODE] & 0x1) &&
+			!(ext_csd[EXT_CSD_FW_CONFIG] & 0x1);
+
 		card->ext_csd.pre_eol_info = ext_csd[EXT_CSD_PRE_EOL_INFO];
 		card->ext_csd.device_life_time_est_typ_a =
 			ext_csd[EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_A];
@@ -810,7 +824,6 @@ MMC_DEV_ATTR(csd, "%08x%08x%08x%08x\n", card->raw_csd[0], card->raw_csd[1],
 MMC_DEV_ATTR(date, "%02d/%04d\n", card->cid.month, card->cid.year);
 MMC_DEV_ATTR(erase_size, "%u\n", card->erase_size << 9);
 MMC_DEV_ATTR(preferred_erase_size, "%u\n", card->pref_erase << 9);
-MMC_DEV_ATTR(fwrev, "0x%x\n", card->cid.fwrev);
 MMC_DEV_ATTR(hwrev, "0x%x\n", card->cid.hwrev);
 MMC_DEV_ATTR(manfid, "0x%06x\n", card->cid.manfid);
 MMC_DEV_ATTR(name, "%s\n", card->cid.prod_name);
@@ -829,6 +842,24 @@ MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(enhanced_rpmb_supported, "%#x\n",
 		card->ext_csd.enhanced_rpmb_supported);
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
+MMC_DEV_ATTR(firmware_version, "0x%08x\n", card->ext_csd.fw_version);
+MMC_DEV_ATTR(device_version,"0x%02x%02x\n",card->ext_csd.device_version[0],card->ext_csd.device_version[1]);
+
+static ssize_t mmc_fwrev_show(struct device *dev,
+			      struct device_attribute *attr,
+			      char *buf)
+{
+	struct mmc_card *card = mmc_dev_to_card(dev);
+
+	if (card->ext_csd.rev < 7) {
+		return sprintf(buf, "0x%x\n", card->cid.fwrev);
+	} else {
+		return sprintf(buf, "0x%*phN\n", MMC_FIRMWARE_LEN,
+			       card->ext_csd.fwrev);
+	}
+}
+
+DEVICE_ATTR(fwrev, S_IRUGO, mmc_fwrev_show, NULL);
 
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
@@ -851,6 +882,8 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_raw_rpmb_size_mult.attr,
 	&dev_attr_enhanced_rpmb_supported.attr,
 	&dev_attr_rel_sectors.attr,
+	&dev_attr_firmware_version.attr,
+	&dev_attr_device_version.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(mmc_std);
@@ -1076,6 +1109,73 @@ static int mmc_select_hs(struct mmc_card *card)
 }
 
 /*
+ * eMMC v4.5 added 4 driver strengths for HS200, matching those for UHS-I in
+ * the SD v3.0 specification.  Functionally, eMMC and SD driver types map as:
+ *
+ *   SD   eMMC   Impedance   Relative Drive
+ *   A    1      33 ohms     x1.5
+ *   B    0      50 ohms     x1    (default)
+ *   C    2      66 ohms     x0.75
+ *   D    3      100 ohms    x0.5
+ *
+ * eMMC v5.0 spec adds one additional type for which there is no corresponding
+ * SD type:
+ *
+ *   Type 4 - 40 ohms, x1.2
+ */
+static int mmc_select_driver_type(struct mmc_card *card)
+{
+	int host_drv_type = MMC_DRIVER_TYPE_0;
+	int card_drv_type = MMC_DRIVER_TYPE_0;
+	int drv_type;
+
+	/*
+	 * We reuse the SD-derived capability bits here.  If the host doesn't
+	 * support any of the Driver Types 1, 2 or 3, or there is no board
+	 * specific handler then default Driver Type 0 is used.
+	 */
+	if (!(card->host->caps & (MMC_CAP_DRIVER_TYPE_A | MMC_CAP_DRIVER_TYPE_C
+					| MMC_CAP_DRIVER_TYPE_D)) &&
+			!(card->host->caps2 & MMC_CAP2_DRIVER_TYPE_4))
+		return 0;
+
+	if (!card->host->ops->select_drive_strength)
+		return 0;
+
+	if (card->host->caps & MMC_CAP_DRIVER_TYPE_A)
+		host_drv_type |= MMC_DRIVER_TYPE_1;
+
+	if (card->host->caps & MMC_CAP_DRIVER_TYPE_C)
+		host_drv_type |= MMC_DRIVER_TYPE_2;
+
+	if (card->host->caps & MMC_CAP_DRIVER_TYPE_D)
+		host_drv_type |= MMC_DRIVER_TYPE_3;
+
+	if (card->host->caps2 & MMC_CAP2_DRIVER_TYPE_4)
+		host_drv_type |= MMC_DRIVER_TYPE_4;
+
+	card_drv_type |= card->ext_csd.raw_drive_strength &
+		(MMC_DRIVER_TYPE_1 | MMC_DRIVER_TYPE_2 |
+		 MMC_DRIVER_TYPE_3 | MMC_DRIVER_TYPE_4);
+
+	/*
+	 * Card drive strength depends on the board design.  Let the host
+	 * driver decide what driver strength is best, based on all of the
+	 * constraints.
+	 */
+	mmc_host_clk_hold(card->host);
+	drv_type = card->host->ops->select_drive_strength(card->host,
+			host_drv_type, card_drv_type);
+	mmc_host_clk_release(card->host);
+
+	pr_debug("%s: %s: %d\n", mmc_hostname(card->host), __func__, drv_type);
+	/* We send the driver type as part of the HS_TIMING command. */
+	card->ext_csd.drv_type = drv_type;
+
+	return 0;
+}
+
+/*
  * Activate wide bus and DDR if supported.
  */
 static int mmc_select_hs_ddr(struct mmc_card *card)
@@ -1289,6 +1389,10 @@ static int mmc_select_hs200(struct mmc_card *card)
 	 * switch to HS200 mode if bus width is set successfully.
 	 */
 	err = mmc_select_bus_width(card);
+
+	if (!IS_ERR_VALUE(err))
+		mmc_select_driver_type(card);
+
 	if (!IS_ERR_VALUE(err)) {
 		err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				   EXT_CSD_HS_TIMING, EXT_CSD_TIMING_HS200,
@@ -1656,6 +1760,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	u32 cid[4];
 	u32 rocr;
 	u8 *ext_csd = NULL;
+	bool scan = (oldcard == NULL);
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
@@ -1708,6 +1813,15 @@ reinit:
 	}
 
 	if (oldcard) {
+		if (oldcard->raw_cid[0] == 0 && oldcard->raw_cid[1] == 0 &&
+		    oldcard->raw_cid[2] == 0 && oldcard->raw_cid[3] == 0) {
+			scan = true;
+			pr_info("%s: updating card identification\n", mmc_hostname(host));
+			memcpy(oldcard->raw_cid, cid, sizeof(oldcard->raw_cid));
+			err = mmc_decode_cid(oldcard);
+			if (err)
+				goto err;
+		}
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0) {
 			err = -ENOENT;
 			pr_err("%s: %s: CID memcmp failed %d\n",
@@ -1750,7 +1864,7 @@ reinit:
 		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
 	}
 
-	if (!oldcard) {
+	if (scan) {
 		/*
 		 * Fetch CSD from card.
 		 */
@@ -1794,7 +1908,7 @@ reinit:
 		}
 	}
 
-	if (!oldcard) {
+	if (scan) {
 		/*
 		 * Fetch and process extended CSD.
 		 */
