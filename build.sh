@@ -39,12 +39,12 @@ TANGGAL=$(date +"%F%S")
 
 # Specify Final Zip Name
 ZIPNAME=NexusKernel
-FINAL_ZIP=${ZIPNAME}-${DEVICE}-${TANGGAL}.zip
+FINAL_ZIP=${ZIPNAME}-${VERSION}-${DEVICE}-${TANGGAL}.zip
 
 ##----------------------------------------------------------##
 # Specify compiler.
 
-COMPILER=aosp
+COMPILER=azure
 
 ##----------------------------------------------------------##
 # Specify Linker
@@ -56,17 +56,17 @@ function cloneTC() {
 	
 	if [ $COMPILER = "atomx" ];
 	then
-	git clone --depth=1  https://gitlab.com/ElectroPerf/atom-x-clang.git clang
+	git clone --depth=1 https://gitlab.com/ElectroPerf/atom-x-clang.git clang
 	PATH="${KERNEL_DIR}/clang/bin:$PATH"
 	
 	elif [ $COMPILER = "azure" ];
 	then
-	git clone --depth=1  https://gitlab.com/Panchajanya1999/azure-clang.git clang
+	git clone --depth=1 https://gitlab.com/Panchajanya1999/azure-clang.git clang
 	PATH="${KERNEL_DIR}/clang/bin:$PATH"
 	
 	elif [ $COMPILER = "proton" ];
 	then
-	git clone --depth=1  https://github.com/kdrag0n/proton-clang.git clang
+	git clone --depth=1 https://github.com/kdrag0n/proton-clang.git clang
 	PATH="${KERNEL_DIR}/clang/bin:$PATH"
 	
 	elif [ $COMPILER = "eva" ];
