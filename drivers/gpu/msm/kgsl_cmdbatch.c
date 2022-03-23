@@ -501,7 +501,7 @@ int kgsl_cmdbatch_add_sync(struct kgsl_device *device,
 	int (*func)(struct kgsl_device *device, struct kgsl_cmdbatch *cmdbatch,
 			void *priv);
 	struct kgsl_cmd_syncpoint_timestamp sync_timestamp;
-	struct kgsl_cmd_syncpoint_fence sync_fence;
+	struct kgsl_cmd_syncpoint_fence __maybe_unused sync_fence;
 
 	switch (sync->type) {
 	case KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP:
