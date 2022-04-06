@@ -44,7 +44,7 @@ FINAL_ZIP=${ZIPNAME}-${VERSION}-${DEVICE}-${TANGGAL}.zip
 ##----------------------------------------------------------##
 # Specify compiler.
 
-COMPILER=aosp
+COMPILER=neutron
 
 ##----------------------------------------------------------##
 # Specify Linker
@@ -53,28 +53,33 @@ LINKER=ld.lld
 ##----------------------------------------------------------##
 # Clone ToolChain
 function cloneTC() {
-	
+
 	if [ $COMPILER = "atomx" ];
 	then
 	git clone --depth=1 https://gitlab.com/ElectroPerf/atom-x-clang.git clang
 	PATH="${KERNEL_DIR}/clang/bin:$PATH"
-	
+
+        elif [ $COMPILER = "neutron" ];
+        then
+        git clone --depth=1 https://gitlab.com/dakkshesh07/neutron-clang.git clang
+        PATH="${KERNEL_DIR}/clang/bin:$PATH"
+
 	elif [ $COMPILER = "azure" ];
 	then
 	git clone --depth=1 https://gitlab.com/Panchajanya1999/azure-clang.git clang
 	PATH="${KERNEL_DIR}/clang/bin:$PATH"
-	
+
 	elif [ $COMPILER = "proton" ];
 	then
 	git clone --depth=1 https://github.com/kdrag0n/proton-clang.git clang
 	PATH="${KERNEL_DIR}/clang/bin:$PATH"
-	
+
 	elif [ $COMPILER = "eva" ];
 	then
 	git clone --depth=1 https://github.com/mvaisakh/gcc-arm64.git -b gcc-new gcc64
 	git clone --depth=1 https://github.com/mvaisakh/gcc-arm.git -b gcc-new gcc32
 	PATH=$KERNEL_DIR/gcc64/bin/:$KERNEL_DIR/gcc32/bin/:/usr/bin:$PATH
-	
+
 	elif [ $COMPILER = "aosp" ];
 	then
         mkdir aosp-clang
@@ -90,11 +95,11 @@ function cloneTC() {
         git clone --depth=1 https://github.com/reaPeR1010/AnyKernel3
 
 	}
-	
+
 ##------------------------------------------------------##
 # Export Variables
 function exports() {
-	
+
         # Export KBUILD_COMPILER_STRING
         if [ -d ${KERNEL_DIR}/clang ];
            then
@@ -106,22 +111,22 @@ function exports() {
             then
                export KBUILD_COMPILER_STRING=$(${KERNEL_DIR}/aosp-clang/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
         fi
-        
+
         # Export ARCH and SUBARCH
         export ARCH=arm64
         export SUBARCH=arm64
-        
+
         # Export Local Version
         export LOCALVERSION="-${VERSION}"
-        
+
         # KBUILD HOST and USER
         export KBUILD_BUILD_HOST=ArchLinux
         export KBUILD_BUILD_USER="RoHaN"
-        
+
         # CI
         if [ "$CI" ]
            then
-               
+
            if [ "$CIRCLECI" ]
               then
                   export KBUILD_BUILD_VERSION=${CIRCLE_BUILD_NUM}
@@ -130,13 +135,13 @@ function exports() {
 	      then
 		  export KBUILD_BUILD_VERSION=${DRONE_BUILD_NUMBER}
 		  export CI_BRANCH=${DRONE_BRANCH}
-           fi
-		   
+              fi
+
         fi
 	export PROCS=$(nproc --all)
 	export DISTRO=$(source /etc/os-release && echo "${NAME}")
 	}
-        
+
 ##----------------------------------------------------------------##
 # Telegram Bot Integration
 
@@ -238,7 +243,7 @@ function zipping() {
         push "$FINAL_ZIP" "Build took : $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) second(s) | For <b>$MODEL ($DEVICE)</b> | <b>${KBUILD_COMPILER_STRING}</b> | <b>MD5 Checksum : </b><code>$MD5CHECK</code>"
         cd ..
         }
-    
+
 ##----------------------------------------------------------##
 
 cloneTC
