@@ -1396,7 +1396,7 @@ SMI130_GYRO_RETURN_FUNCTION_TYPE smi130_gyro_set_shadow_dis(unsigned char shadow
  * Remarks:
  *
  *****************************************************************************/
-SMI130_GYRO_RETURN_FUNCTION_TYPE smi130_gyro_set_soft_reset()
+SMI130_GYRO_RETURN_FUNCTION_TYPE smi130_gyro_set_soft_reset(void)
 {
 	SMI130_GYRO_RETURN_FUNCTION_TYPE comres  = C_SMI130_GYRO_Zero_U8X;
 	unsigned char v_SoftReset_u8r  = C_SMI130_GYRO_Zero_U8X;
@@ -5259,7 +5259,7 @@ unsigned char channel, unsigned char offset_wl)
  * Remarks:
  *
  *****************************************************************************/
-SMI130_GYRO_RETURN_FUNCTION_TYPE smi130_gyro_enable_fast_offset()
+SMI130_GYRO_RETURN_FUNCTION_TYPE smi130_gyro_enable_fast_offset(void)
 {
 	SMI130_GYRO_RETURN_FUNCTION_TYPE comres  = C_SMI130_GYRO_Zero_U8X;
 	unsigned char v_data_u8r  = C_SMI130_GYRO_Zero_U8X;

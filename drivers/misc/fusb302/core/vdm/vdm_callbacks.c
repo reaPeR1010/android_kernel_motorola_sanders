@@ -49,7 +49,7 @@ SvidInfo core_svid_info;
 int AutoModeEntryObjPos;
 #endif // FSC_HAVE_DP
 
-Identity vdmRequestIdentityInfo()
+Identity vdmRequestIdentityInfo(void)
 {
 	Identity id = { 0 };
 
@@ -63,7 +63,7 @@ Identity vdmRequestIdentityInfo()
 	return id;
 }
 
-SvidInfo vdmRequestSvidInfo()
+SvidInfo vdmRequestSvidInfo(void)
 {
 	SvidInfo svid_info = { 0 };
 
@@ -212,7 +212,7 @@ void vdmInformAttention(FSC_U16 svid, FSC_U8 mode_index)
 
 }
 
-void vdmInitDpm()
+void vdmInitDpm(void)
 {
 #ifdef FM150911A
 	svid_enable = TRUE;

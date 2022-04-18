@@ -155,7 +155,7 @@ void msm_set_iommu_access_ops(struct iommu_access_ops *ops)
 	iommu_access_ops = ops;
 }
 
-struct iommu_access_ops *msm_get_iommu_access_ops()
+struct iommu_access_ops *msm_get_iommu_access_ops(void)
 {
 	BUG_ON(iommu_access_ops == NULL);
 	return iommu_access_ops;

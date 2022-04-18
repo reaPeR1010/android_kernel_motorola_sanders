@@ -71,7 +71,7 @@ FSC_BOOL usbMatchId(FSC_U16 vid, FSC_U16 pid)
 	return FALSE;
 }
 // initialize the VDM Manager (no definition/configuration object necessary). returns 0 on success.
-FSC_S32 initializeVdm()
+FSC_S32 initializeVdm(void)
 {
 	vdm_timeout = FALSE;
 	ExpectingVdmResponse = FALSE;
@@ -1022,7 +1022,7 @@ void startVdmTimer(FSC_S32 n_pe)
 	}
 }
 
-void sendVdmMessageFailed()
+void sendVdmMessageFailed(void)
 {
 	resetPolicyState();
 }

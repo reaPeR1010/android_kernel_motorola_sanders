@@ -1778,14 +1778,14 @@ static int wcnss_wlan_resume(struct device *dev)
 	return 0;
 }
 
-void wcnss_prevent_suspend()
+void wcnss_prevent_suspend(void)
 {
 	if (penv)
 		wake_lock(&penv->wcnss_wake_lock);
 }
 EXPORT_SYMBOL(wcnss_prevent_suspend);
 
-void wcnss_allow_suspend()
+void wcnss_allow_suspend(void)
 {
 	if (penv)
 		wake_unlock(&penv->wcnss_wake_lock);
