@@ -44,7 +44,7 @@ FINAL_ZIP=${ZIPNAME}-${VERSION}-${DEVICE}-${TANGGAL}.zip
 ##----------------------------------------------------------##
 # Specify compiler.
 
-COMPILER=neutron
+COMPILER=atomx
 
 ##----------------------------------------------------------##
 # Specify Linker
