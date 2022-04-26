@@ -122,18 +122,17 @@ function exports() {
         # KBUILD HOST and USER
         export KBUILD_BUILD_HOST=ArchLinux
         export KBUILD_BUILD_USER="RoHaN"
+        export KBUILD_BUILD_VERSION="1"
 
         # CI
         if [ "$CI" ]
            then
 
            if [ "$CIRCLECI" ]
-              then
-                  export KBUILD_BUILD_VERSION=${CIRCLE_BUILD_NUM}
+              then                  
                   export CI_BRANCH=${CIRCLE_BRANCH}
            elif [ "$DRONE" ]
-	      then
-		  export KBUILD_BUILD_VERSION=${DRONE_BUILD_NUMBER}
+	      then		  
 		  export CI_BRANCH=${DRONE_BRANCH}
               fi
 
