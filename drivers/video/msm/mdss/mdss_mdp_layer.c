@@ -644,8 +644,9 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	if (pipe->src_fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90) &&
 			!pipe->scaler.enable) {
 		pipe->overfetch_disable = OVERFETCH_DISABLE_BOTTOM;
+        }
 
-	if (pipe->dst.x >= left_lm_w)
+	if (pipe->dst.x >= left_lm_w) {
 		pipe->overfetch_disable |= OVERFETCH_DISABLE_RIGHT;
 		pr_debug("overfetch flags=%x\n", pipe->overfetch_disable);
 	} else {
