@@ -1209,10 +1209,10 @@ static void stmvl53l0_cancel_handler(struct stmvl53l0_data *data)
 	if (ret == 0)
 		vl53l0_errmsg("%d,cancel_delayed_work return FALSE\n",
 		__LINE__);
-		ret = cancel_delayed_work(&data->checkwork);
-		if (ret == 0)
-				vl53l0_errmsg("%d,cancel_delayEd_work return FALSE\n",
-				__LINE__);
+	ret = cancel_delayed_work(&data->checkwork);
+	if (ret == 0)
+		vl53l0_errmsg("%d,cancel_delayEd_work return FALSE\n",
+		__LINE__);
 	spin_unlock_irqrestore(&data->update_lock.wait_lock, flags);
 
 	return;
