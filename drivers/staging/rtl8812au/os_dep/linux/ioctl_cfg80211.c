@@ -5615,7 +5615,7 @@ exit:
 static int	cfg80211_rtw_del_station(struct wiphy *wiphy, struct net_device *ndev,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 16, 0))
 	u8 *mac
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0))
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0))
 	const u8 *mac
 #else
 	struct station_del_parameters *params
@@ -5632,7 +5632,7 @@ static int	cfg80211_rtw_del_station(struct wiphy *wiphy, struct net_device *ndev
 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
 	struct sta_priv *pstapriv = &padapter->stapriv;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0))
 	target_mac = mac;
 #else
 	target_mac = params->mac;
