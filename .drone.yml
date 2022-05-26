@@ -4,7 +4,7 @@ kind: pipeline
 name : NexusKernel
 steps:
  - name: MSM8953
-   image: atomxorg/ubuntu:latest
+   image: nexgang/ubuntu:latest
    environment:
      token:
        from_secret: token
