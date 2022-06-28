@@ -117,9 +117,9 @@ int msm_ipc_config_sec_rules(void *arg)
 	if (ret)
 		return -EFAULT;
 
-    /* Default rule change from config util not allowed */
-    if (sec_rules_arg.service_id == ALL_SERVICE)
-            return -EINVAL;
+	/* Default rule change from config util not allowed */
+	if (sec_rules_arg.service_id == ALL_SERVICE)
+		return -EINVAL;
 
 	if (sec_rules_arg.num_group_info <= 0)
 		return -EINVAL;
@@ -181,8 +181,8 @@ int msm_ipc_config_sec_rules(void *arg)
 	list_add_tail(&rule->list, &security_rules[key]);
 	up_write(&security_rules_lock_lha4);
 
-    msm_ipc_sync_sec_rule(rule->service_id,
-                          rule->instance_id, (void *)rule);
+	msm_ipc_sync_sec_rule(rule->service_id,
+			      rule->instance_id, (void *)rule);
 
 	return 0;
 }
