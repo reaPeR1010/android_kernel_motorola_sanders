@@ -142,9 +142,9 @@ make O=out ARCH=arm64 ${DEFCONFIG}
 if [[ "$TOOLCHAIN" == "eva" || "$TOOLCHAIN" == "aospa" || "$TOOLCHAIN" == "nexus9" || "$TOOLCHAIN" == "nexus12" ]]; then
      make -kj$(nproc --all) O=out ARCH=arm64 CROSS_COMPILE_ARM32=arm-eabi- CROSS_COMPILE=aarch64-elf- LD=aarch64-elf-${LINKER} AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip OBJSIZE=llvm-size V=$VERBOSE 2>&1 | tee error.log
 elif [[ "$TOOLCHAIN" == "nexus" || "$TOOLCHAIN" == "proton" ]]; then
-     make -kj$(nproc --all) O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LD=${LINKER} AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf OBJSIZE=llvm-size V=$VERBOSE 2>&1 | tee error.log
+     make -kj$(nproc --all) O=out ARCH=arm64 CC=clang HOSTCC=clang HOSTCXX=clang++ HOSTLD=ld.lld  CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LD=${LINKER} AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf OBJSIZE=llvm-size V=$VERBOSE 2>&1 | tee error.log
 elif [[ "$TOOLCHAIN" == "aosp" || "$TOOLCHAIN" == "sdclang" ]]; then
-     make -kj$(nproc --all) O=out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- LD=${LINKER} AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf OBJSIZE=llvm-size V=$VERBOSE 2>&1 | tee error.log
+     make -kj$(nproc --all) O=out ARCH=arm64 CC=clang HOSTCC=clang HOSTCXX=clang++ HOSTLD=ld.lld  CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- LD=${LINKER} AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf OBJSIZE=llvm-size V=$VERBOSE 2>&1 | tee error.log
 fi
 
 # Combine DTB
