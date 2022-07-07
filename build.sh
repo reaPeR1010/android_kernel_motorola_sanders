@@ -36,15 +36,26 @@ DATE=$(TZ=Asia/Kolkata date +"%Y%m%d-%T")
 TANGGAL=$(date +"%F%S")
 
 # Compiler and Build Information
-TOOLCHAIN=nexus # List ( gcc = eva | aospa | nexus9 | nexus12 ) (clang = nexus | aosp | sdclang | proton )
+TOOLCHAIN=nexus9 # List ( gcc = eva | nexus9 | nexus12 ) (clang = nexus | aosp | sdclang | proton | atomx )
 LINKER=ld.lld # List ( ld.lld | ld.bfd | ld.gold | ld )
+
+if [[ "$TOOLCHAIN" == "eva" || "$TOOLCHAIN" == "nexus9" || "$TOOLCHAIN" == "nexus12" ]]; then
+       COMPILER=gcc
+elif [[ "$TOOLCHAIN" == "nexus" || "$TOOLCHAIN" == "proton" || "$TOOLCHAIN" == "aosp" || "$TOOLCHAIN" == "sdclang" || "$TOOLCHAIN" == "atomx" ]]; then
+       COMPILER=clang
+fi
+
 VERBOSE=0
 ZIPNAME=NexusKernel
 FINAL_ZIP=${ZIPNAME}-${VERSION}-${DEVICE}-${TANGGAL}.zip
 
-# Disable -Werror
-if [[ "$TOOLCHAIN" == "eva" || "$TOOLCHAIN" == "nexus12" ]]; then
-sed -i 's/CONFIG_WERROR=y/# CONFIG_WERROR is not set/' arch/arm64/configs/${DEFCONFIG}
+# Disable Configs
+if [[ "$COMPILER" == "gcc" ]]; then
+sed -i 's/CONFIG_CC_WERROR=y/# CONFIG_CC_WERROR is not set/' arch/arm64/configs/${DEFCONFIG}
+sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/' arch/arm64/configs/${DEFCONFIG}
+sed -i 's/CONFIG_LTO=y/# CONFIG_LTO is not set/' arch/arm64/configs/${DEFCONFIG}
+sed -i 's/# CONFIG_LTO_NONE is not set/CONFIG_LTO_NONE=y/' arch/arm64/configs/${DEFCONFIG}
+sed -i 's/CONFIG_LLVM_POLLY=y/# CONFIG_LLVM_POLLY is not set/' arch/arm64/configs/${DEFCONFIG}
 fi
 
 # CI
@@ -82,9 +93,6 @@ function clone() {
 if [[ $TOOLCHAIN == "eva" ]]; then
        git clone --depth=1 https://github.com/mvaisakh/gcc-arm64 gcc64
        git clone --depth=1 https://github.com/mvaisakh/gcc-arm gcc32
-elif [[ $TOOLCHAIN == "aospa" ]]; then
-       git clone --depth=1 https://github.com/AOSPA/android_prebuilts_gcc_linux-x86_aarch64_aarch64-elf gcc64
-       git clone --depth=1 https://github.com/AOSPA/android_prebuilts_gcc_linux-x86_arm_arm-eabi gcc32
 elif [[ $TOOLCHAIN == "nexus9" ]]; then
        git clone --depth=1 https://github.com/reaPeR1010/arm64-gcc -b gcc-9 gcc64
        git clone --depth=1 https://github.com/reaPeR1010/arm32-gcc -b gcc-9 gcc32
@@ -94,7 +102,9 @@ elif [[ $TOOLCHAIN == "nexus12" ]]; then
 elif [[ $TOOLCHAIN == "proton" ]]; then
        git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 elif [[ $TOOLCHAIN == "nexus" ]]; then
-       git clone --depth=1  https://gitlab.com/Project-Nexus/nexus-clang clang
+       git clone --depth=1  https://gitlab.com/Project-Nexus/nexus-clang -b nexus-14 clang
+elif [[ $TOOLCHAIN == "atomx" ]]; then
+       git clone --depth=1  https://gitlab.com/ElectroPerf/atom-x-clang.git clang
 elif [[ $TOOLCHAIN == "aosp" ]]; then
        mkdir clang
        cd clang || exit
@@ -113,18 +123,18 @@ fi
 git clone --depth=1 https://github.com/reaPeR1010/AnyKernel3 AK3
 
 # Set PATH
-if [[ "$TOOLCHAIN" == "eva" || "$TOOLCHAIN" == "aospa" || "$TOOLCHAIN" == "nexus9" || "$TOOLCHAIN" == "nexus12" ]]; then
-       PATH="${KERNEL_DIR}/gcc64/bin/:${KERNEL_DIR}/gcc32/bin/:/usr/bin:${PATH}"
-elif [[ "$TOOLCHAIN" == "nexus" || "$TOOLCHAIN" == "proton" ]]; then
+if [[ "$COMPILER" == "gcc" ]]; then
+       PATH="${KERNEL_DIR}/gcc64/bin/:${KERNEL_DIR}/gcc32/bin/:/usr/bin:$PATH"
+elif [[ "$TOOLCHAIN" == "nexus" || "$TOOLCHAIN" == "proton" || "$TOOLCHAIN" == "atomx" ]]; then
        PATH="${KERNEL_DIR}/clang/bin:${PATH}"
 elif [[ "$TOOLCHAIN" == "aosp" || "$TOOLCHAIN" == "sdclang" ]]; then
        PATH="${KERNEL_DIR}/clang/bin:${KERNEL_DIR}/gcc64/bin:${KERNEL_DIR}/gcc32/bin:${PATH}"
 fi
 
 # Export KBUILD_COMPILER_STRING
-if [[ "$TOOLCHAIN" == "eva" || "$TOOLCHAIN" == "aospa" || "$TOOLCHAIN" == "nexus9" || "$TOOLCHAIN" == "nexus12" ]]; then
+if [[ "$COMPILER" == "gcc" ]]; then
        export KBUILD_COMPILER_STRING=$(${KERNEL_DIR}/gcc64/bin/aarch64-elf-gcc --version | head -n 1)
-elif [[ "$TOOLCHAIN" == "nexus" || "$TOOLCHAIN" == "proton" || "$TOOLCHAIN" == "aosp" || "$TOOLCHAIN" == "sdclang" ]]; then
+elif [[ "$COMPILER" == "clang" ]]; then
        export KBUILD_COMPILER_STRING=$(${KERNEL_DIR}/clang/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 fi
 }
@@ -139,9 +149,9 @@ post_msg "<b>$KBUILD_BUILD_VERSION CI Build Triggered</b>%0A<b>Docker OS: </b><c
 make O=out ARCH=arm64 ${DEFCONFIG}
 
 # Start Compilation
-if [[ "$TOOLCHAIN" == "eva" || "$TOOLCHAIN" == "aospa" || "$TOOLCHAIN" == "nexus9" || "$TOOLCHAIN" == "nexus12" ]]; then
+if [[ "$COMPILER" == "gcc" ]]; then
      MAKE+=( HOSTLD=ld.lld CROSS_COMPILE_ARM32=arm-eabi- CROSS_COMPILE=aarch64-elf- LD=aarch64-elf-${LINKER} AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip OBJSIZE=llvm-size )
-elif [[ "$TOOLCHAIN" == "nexus" || "$TOOLCHAIN" == "proton" || "$TOOLCHAIN" == "aosp" || "$TOOLCHAIN" == "sdclang" ]]; then
+elif [[ "$COMPILER" == "clang" ]]; then
      MAKE+=( CC=clang HOSTCC=clang HOSTCXX=clang++ HOSTLD=ld.lld  LD=${LINKER} AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf OBJSIZE=llvm-size )
      if [[ "$TOOLCHAIN" == "aosp" || "$TOOLCHAIN" == "sdclang" ]]; then
      MAKE+=( CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- )
