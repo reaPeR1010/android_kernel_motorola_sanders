@@ -774,7 +774,6 @@ EXTRA_CFLAGS += $(call cc-disable-warning, void-pointer-to-enum-cast)
 endif
 
 ccflags-y += $(call cc-option, -g0)
-ccflags-y += $(call cc-option, -Os)
 
 ifeq ($(CONFIG_WLAN_OFFLOAD_PACKETS),y)
 CDEFINES += -DWLAN_FEATURE_OFFLOAD_PACKETS
