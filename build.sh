@@ -36,7 +36,7 @@ DATE=$(TZ=Asia/Kolkata date +"%Y%m%d-%T")
 TANGGAL=$(date +"%F%S")
 
 # Compiler and Build Information
-TOOLCHAIN=nexus9 # List ( gcc = eva | nexus9 | nexus12 ) (clang = nexus | aosp | sdclang | proton | atomx )
+TOOLCHAIN=nexus # List ( gcc = eva | nexus9 | nexus12 ) (clang = nexus | aosp | sdclang | proton | atomx )
 LINKER=ld.lld # List ( ld.lld | ld.bfd | ld.gold | ld )
 
 if [[ "$TOOLCHAIN" == "eva" || "$TOOLCHAIN" == "nexus9" || "$TOOLCHAIN" == "nexus12" ]]; then
@@ -102,7 +102,7 @@ elif [[ $TOOLCHAIN == "nexus12" ]]; then
 elif [[ $TOOLCHAIN == "proton" ]]; then
        git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 elif [[ $TOOLCHAIN == "nexus" ]]; then
-       git clone --depth=1  https://gitlab.com/Project-Nexus/nexus-clang -b nexus-14 clang
+       git clone --depth=1  https://gitlab.com/Project-Nexus/nexus-clang -b nexus-15 clang
 elif [[ $TOOLCHAIN == "atomx" ]]; then
        git clone --depth=1  https://gitlab.com/ElectroPerf/atom-x-clang.git clang
 elif [[ $TOOLCHAIN == "aosp" ]]; then
