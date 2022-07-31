@@ -36,12 +36,12 @@ DATE=$(TZ=Asia/Kolkata date +"%Y%m%d-%T")
 TANGGAL=$(date +"%F%S")
 
 # Compiler and Build Information
-TOOLCHAIN=nexus # List ( gcc = eva | nexus9 | nexus12 ) (clang = nexus | aosp | sdclang | proton | atomx )
+TOOLCHAIN=aosp # List ( gcc = eva | nexus9 | nexus12 ) (clang = nexus | aosp | sdclang | neutron | atomx )
 LINKER=ld.lld # List ( ld.lld | ld.bfd | ld.gold | ld )
 
 if [[ "$TOOLCHAIN" == "eva" || "$TOOLCHAIN" == "nexus9" || "$TOOLCHAIN" == "nexus12" ]]; then
        COMPILER=gcc
-elif [[ "$TOOLCHAIN" == "nexus" || "$TOOLCHAIN" == "proton" || "$TOOLCHAIN" == "aosp" || "$TOOLCHAIN" == "sdclang" || "$TOOLCHAIN" == "atomx" ]]; then
+elif [[ "$TOOLCHAIN" == "nexus" || "$TOOLCHAIN" == "neutron" || "$TOOLCHAIN" == "aosp" || "$TOOLCHAIN" == "sdclang" || "$TOOLCHAIN" == "atomx" ]]; then
        COMPILER=clang
 fi
 
@@ -99,16 +99,16 @@ elif [[ $TOOLCHAIN == "nexus9" ]]; then
 elif [[ $TOOLCHAIN == "nexus12" ]]; then
        git clone --depth=1 https://github.com/reaPeR1010/arm64-gcc -b gcc-12 gcc64
        git clone --depth=1 https://github.com/reaPeR1010/arm32-gcc -b gcc-12 gcc32
-elif [[ $TOOLCHAIN == "proton" ]]; then
-       git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
+elif [[ $TOOLCHAIN == "neutron" ]]; then
+       git clone --depth=1 https://gitlab.com/dakkshesh07/neutron-clang.git clang
 elif [[ $TOOLCHAIN == "nexus" ]]; then
-       git clone --depth=1  https://gitlab.com/Project-Nexus/nexus-clang -b nexus-15 clang
+       git clone --depth=1  https://gitlab.com/Project-Nexus/nexus-clang.git clang
 elif [[ $TOOLCHAIN == "atomx" ]]; then
        git clone --depth=1  https://gitlab.com/ElectroPerf/atom-x-clang.git clang
 elif [[ $TOOLCHAIN == "aosp" ]]; then
        mkdir clang
        cd clang || exit
-       wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r450784e.tar.gz
+       wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r458507.tar.gz
        tar -xf clang*
        cd .. || exit
        git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git --depth=1 gcc64
@@ -125,7 +125,7 @@ git clone --depth=1 https://github.com/reaPeR1010/AnyKernel3 AK3
 # Set PATH
 if [[ "$COMPILER" == "gcc" ]]; then
        PATH="${KERNEL_DIR}/gcc64/bin/:${KERNEL_DIR}/gcc32/bin/:/usr/bin:$PATH"
-elif [[ "$TOOLCHAIN" == "nexus" || "$TOOLCHAIN" == "proton" || "$TOOLCHAIN" == "atomx" ]]; then
+elif [[ "$TOOLCHAIN" == "nexus" || "$TOOLCHAIN" == "neutron" || "$TOOLCHAIN" == "atomx" ]]; then
        PATH="${KERNEL_DIR}/clang/bin:${PATH}"
 elif [[ "$TOOLCHAIN" == "aosp" || "$TOOLCHAIN" == "sdclang" ]]; then
        PATH="${KERNEL_DIR}/clang/bin:${KERNEL_DIR}/gcc64/bin:${KERNEL_DIR}/gcc32/bin:${PATH}"
