@@ -15,7 +15,7 @@ MODEL=Motorola
 DEVICE=Sanders
 DEFCONFIG=sanders_defconfig
 IMAGE=$(pwd)/out/arch/arm64/boot/Image.gz
-DT=$(pwd)/out/arch/arm64/boot/dt
+DT=$(pwd)/out/arch/arm64/boot/dt.img
 DTBTOOL=$(pwd)/Dtbtool/
 ##----------------------------------------------------------##
 ## Export Variables and Info
@@ -162,9 +162,6 @@ fi
 
 make -kj$PROCS ARCH=arm64 O=out V=$VERBOSE "${MAKE[@]}" 2>&1 | tee error.log
 
-# Combine DTB
-$DTBTOOL/dtbToolMayhem -o $KERNEL_DIR/out/arch/arm64/boot/dt -s 2048 -p $KERNEL_DIR/out/scripts/dtc/ $KERNEL_DIR/out/arch/arm64/boot/dts/qcom/
-
 # Verify Files
 	if ! [ -a "$IMAGE" ];
 	   then
@@ -173,6 +170,10 @@ $DTBTOOL/dtbToolMayhem -o $KERNEL_DIR/out/arch/arm64/boot/dt -s 2048 -p $KERNEL_
 	   else
       	       post_msg " Kernel Compilation Finished. Started Zipping "
 	fi
+
+# Combine DTB
+$DTBTOOL/dtbTool -o $KERNEL_DIR/out/arch/arm64/boot/dt.img -s 2048 -3 -p $KERNEL_DIR/out/scripts/dtc/ $KERNEL_DIR/out/arch/arm64/boot/dts/qcom/
+
 }
 ##----------------------------------------------------------------##
 function zipping() {
