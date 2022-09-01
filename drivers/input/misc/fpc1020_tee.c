@@ -300,9 +300,9 @@ static void set_fpc_irq(struct fpc1020_data *fpc1020, bool enable)
 		return;
 
 	if (enable)
-		enable_irq(gpio_to_irq(fpc1020->irq_gpio));
+		enable_irq_wake(gpio_to_irq(fpc1020->irq_gpio));
 	else
-		disable_irq(gpio_to_irq(fpc1020->irq_gpio));
+		disable_irq_wake(gpio_to_irq(fpc1020->irq_gpio));
 }
 
 static ssize_t dev_enable_set(struct device *dev,
