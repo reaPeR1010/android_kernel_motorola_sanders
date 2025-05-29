@@ -198,4 +198,7 @@ source "drivers/bif/Kconfig"
 
 source "drivers/dts_eagle/Kconfig"
 
+# KernelSU
+source "drivers/kernelsu/Kconfig"
+
 endmenu
